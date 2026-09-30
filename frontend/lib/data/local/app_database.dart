@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../domain/models/categorization_rule.dart';
 import '../../domain/models/category.dart';
 import '../../domain/models/operation.dart';
 
@@ -43,20 +44,37 @@ class Subcategories extends Table {
   ];
 }
 
+/// Выученные правила категоризации (обучение по правкам пользователя).
+@DataClassName('CategorizationRuleRow')
+class CategorizationRules extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get keyword => text().unique()();
+  TextColumn get category => text()();
+  TextColumn get subcategory => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+}
+
 /// Локальная БД приложения Sona.
 ///
 /// В продакшене открывается через [driftDatabase] с шифрованием SQLCipher
 /// (см. `connection.dart`), в тестах — через `NativeDatabase.memory()`.
-@DriftDatabase(tables: [Operations, Categories, Subcategories])
+@DriftDatabase(
+  tables: [Operations, Categories, Subcategories, CategorizationRules],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
     onCreate: (m) async => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(categorizationRules);
+      }
+    },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
     },
@@ -226,6 +244,140 @@ class AppDatabase extends _$AppDatabase {
       await delete(categories).go();
       await seedCategories(source);
     });
+  }
+
+  /// Добавляет категорию в конец списка и возвращает её id.
+  Future<int> addCategory(String name, {bool isIncome = false}) async {
+    final rows = await select(categories).get();
+    var maxOrder = -1;
+    for (final row in rows) {
+      if (row.sortOrder > maxOrder) maxOrder = row.sortOrder;
+    }
+    return into(categories).insert(
+      CategoriesCompanion.insert(
+        name: name,
+        isIncome: Value(isIncome),
+        sortOrder: Value(maxOrder + 1),
+      ),
+    );
+  }
+
+  /// Переименовывает категорию.
+  Future<void> renameCategory(int id, String name) {
+    return (update(categories)..where((t) => t.id.equals(id))).write(
+      CategoriesCompanion(name: Value(name)),
+    );
+  }
+
+  /// Удаляет категорию вместе с подкатегориями (каскадно).
+  Future<void> deleteCategory(int id) {
+    return (delete(categories)..where((t) => t.id.equals(id))).go();
+  }
+
+  /// Добавляет подкатегорию к категории.
+  Future<void> addSubcategory(int categoryId, String name) async {
+    final rows = await (select(subcategories)
+          ..where((t) => t.categoryId.equals(categoryId)))
+        .get();
+    var maxOrder = -1;
+    for (final row in rows) {
+      if (row.sortOrder > maxOrder) maxOrder = row.sortOrder;
+    }
+    await into(subcategories).insert(
+      SubcategoriesCompanion.insert(
+        categoryId: categoryId,
+        name: name,
+        sortOrder: Value(maxOrder + 1),
+      ),
+    );
+  }
+
+  /// Переименовывает подкатегорию категории.
+  Future<void> renameSubcategory(int categoryId, String oldName, String newName) {
+    return (update(subcategories)
+          ..where((t) => t.categoryId.equals(categoryId) & t.name.equals(oldName)))
+        .write(SubcategoriesCompanion(name: Value(newName)));
+  }
+
+  /// Удаляет подкатегорию категории.
+  Future<void> deleteSubcategory(int categoryId, String name) {
+    return (delete(subcategories)
+          ..where((t) => t.categoryId.equals(categoryId) & t.name.equals(name)))
+        .go();
+  }
+
+  /// Все выученные правила категоризации.
+  Future<List<CategorizationRule>> allRules() {
+    final query = select(categorizationRules)
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
+    return query.get().then((rows) => rows.map(_toRule).toList());
+  }
+
+  /// Поток правил категоризации.
+  Stream<List<CategorizationRule>> watchRules() {
+    final query = select(categorizationRules)
+      ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
+    return query.watch().map((rows) => rows.map(_toRule).toList());
+  }
+
+  /// Создаёт или обновляет правило для [keyword].
+  Future<CategorizationRule> upsertRule({
+    required String keyword,
+    required String category,
+    String? subcategory,
+    DateTime? createdAt,
+  }) async {
+    final existing =
+        await (select(categorizationRules)
+              ..where((t) => t.keyword.equals(keyword)))
+            .getSingleOrNull();
+    final now = createdAt ?? DateTime.now();
+    if (existing != null) {
+      await (update(categorizationRules)..where((t) => t.id.equals(existing.id)))
+          .write(
+            CategorizationRulesCompanion(
+              category: Value(category),
+              subcategory: Value(subcategory),
+            ),
+          );
+      return CategorizationRule(
+        id: existing.id,
+        keyword: keyword,
+        category: category,
+        subcategory: subcategory,
+        createdAt: existing.createdAt,
+      );
+    }
+    final id = await into(categorizationRules).insert(
+      CategorizationRulesCompanion.insert(
+        keyword: keyword,
+        category: category,
+        subcategory: Value(subcategory),
+        createdAt: now,
+      ),
+    );
+    return CategorizationRule(
+      id: id,
+      keyword: keyword,
+      category: category,
+      subcategory: subcategory,
+      createdAt: now,
+    );
+  }
+
+  /// Удаляет правило категоризации.
+  Future<void> deleteRule(int id) {
+    return (delete(categorizationRules)..where((t) => t.id.equals(id))).go();
+  }
+
+  CategorizationRule _toRule(CategorizationRuleRow row) {
+    return CategorizationRule(
+      id: row.id,
+      keyword: row.keyword,
+      category: row.category,
+      subcategory: row.subcategory,
+      createdAt: row.createdAt,
+    );
   }
 
   Operation _toOperation(OperationRow row) {

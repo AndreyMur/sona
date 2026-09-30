@@ -51,4 +51,22 @@ abstract interface class CategoryRepository {
   /// Заменяет категории значениями из remote config (сохраняя пользовательские
   /// правки не требуется в MVP).
   Future<void> replaceAll(Map<String, List<String>> categories);
+
+  /// Добавляет категорию и возвращает её.
+  Future<Category> addCategory(String name, {bool isIncome = false});
+
+  /// Переименовывает категорию.
+  Future<void> renameCategory(int id, String name);
+
+  /// Удаляет категорию вместе с подкатегориями.
+  Future<void> deleteCategory(int id);
+
+  /// Добавляет подкатегорию к категории.
+  Future<void> addSubcategory(int categoryId, String name);
+
+  /// Переименовывает подкатегорию.
+  Future<void> renameSubcategory(int categoryId, String oldName, String newName);
+
+  /// Удаляет подкатегорию.
+  Future<void> deleteSubcategory(int categoryId, String name);
 }

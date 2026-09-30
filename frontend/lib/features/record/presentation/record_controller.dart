@@ -9,6 +9,7 @@ import '../../../domain/models/category.dart';
 import '../../../domain/models/operation.dart';
 import '../../../domain/models/record_state.dart';
 import '../../../domain/models/shortcut.dart';
+import '../../../domain/services/categorization_rule_matcher.dart';
 import '../../../domain/services/shortcut_matcher.dart';
 
 /// Управляет сценарием «голос/текст → сохранённая операция».
@@ -198,10 +199,41 @@ class RecordController extends Notifier<RecordState> {
   }
 
   /// Меняет распознанную операцию до сохранения (кнопка «Изменить»).
+  ///
+  /// Если пользователь поправил категорию или подкатегорию — запоминает
+  /// правило «ключевое слово фразы → новая категория»: приложение обучается
+  /// на правках и в следующий раз категоризирует само.
   void updateOperation(int index, ParsedOperation operation) {
     if (index < 0 || index >= state.operations.length) return;
+    final previous = state.operations[index];
     final updated = [...state.operations]..[index] = operation;
     state = state.copyWith(operations: updated);
+    unawaited(_learnFromCorrection(previous, operation));
+  }
+
+  /// Обучение категоризации — best effort: сбой не влияет на основной
+  /// сценарий записи, ошибки поглощаются.
+  Future<void> _learnFromCorrection(
+    ParsedOperation before,
+    ParsedOperation after,
+  ) async {
+    if (before.category == after.category &&
+        before.subcategory == after.subcategory) {
+      return;
+    }
+    final transcript = state.transcript;
+    if (transcript == null || transcript.trim().isEmpty) return;
+    final keyword = CategorizationRuleMatcher.candidateKeyword(transcript);
+    if (keyword == null) return;
+    try {
+      await ref.read(categorizationRepositoryProvider).learn(
+        keyword: keyword,
+        category: after.category,
+        subcategory: after.subcategory,
+      );
+    } catch (_) {
+      // Обучение не критично: игнорируем сбои записи правила.
+    }
   }
 
   /// Удаляет одну операцию из списка до сохранения.

@@ -1,7 +1,9 @@
 import 'dart:async';
 
+import 'package:sona/domain/models/categorization_rule.dart';
 import 'package:sona/domain/models/operation.dart';
 import 'package:sona/domain/models/recognition.dart';
+import 'package:sona/domain/repositories/categorization_repository.dart';
 import 'package:sona/domain/services/audio_recorder.dart';
 import 'package:sona/domain/services/connectivity_service.dart';
 import 'package:sona/domain/services/recognition_service.dart';
@@ -107,6 +109,65 @@ class FakeTextParsing implements TextParsingService {
       throw StateError('FakeTextParsing: нет результата для "$text"');
     }
     return value;
+  }
+}
+
+/// Поддельный репозиторий выученных правил категоризации.
+class FakeCategorizationRepository implements CategorizationRepository {
+  FakeCategorizationRepository([List<CategorizationRule>? initial]) {
+    for (final rule in initial ?? const <CategorizationRule>[]) {
+      _rules[rule.id] = rule;
+      _nextId = rule.id + 1 > _nextId ? rule.id + 1 : _nextId;
+    }
+  }
+
+  final Map<int, CategorizationRule> _rules = {};
+  int _nextId = 1;
+  final StreamController<List<CategorizationRule>> _controller =
+      StreamController<List<CategorizationRule>>.broadcast();
+
+  @override
+  Future<List<CategorizationRule>> all() async => _rules.values.toList();
+
+  @override
+  Stream<List<CategorizationRule>> watchAll() => _controller.stream;
+
+  @override
+  Future<CategorizationRule> learn({
+    required String keyword,
+    required String category,
+    String? subcategory,
+  }) async {
+    final existing = _rules.values.where((r) => r.keyword == keyword).toList();
+    if (existing.isNotEmpty) {
+      final old = existing.first;
+      final updated = CategorizationRule(
+        id: old.id,
+        keyword: keyword,
+        category: category,
+        subcategory: subcategory,
+        createdAt: old.createdAt,
+      );
+      _rules[old.id] = updated;
+      _controller.add(_rules.values.toList());
+      return updated;
+    }
+    final rule = CategorizationRule(
+      id: _nextId++,
+      keyword: keyword,
+      category: category,
+      subcategory: subcategory,
+      createdAt: DateTime(2026, 9, 30),
+    );
+    _rules[rule.id] = rule;
+    _controller.add(_rules.values.toList());
+    return rule;
+  }
+
+  @override
+  Future<void> delete(int id) async {
+    _rules.remove(id);
+    _controller.add(_rules.values.toList());
   }
 }
 
