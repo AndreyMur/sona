@@ -162,7 +162,7 @@ class _SpendSummaryCard extends ConsumerWidget {
             const SizedBox(width: AppSpacing.xxs),
           ],
           Text(
-            '${rising ? '+' : '−'}${change.abs()}%'
+            '${flat ? '' : rising ? '+' : '−'}${change.abs()}%'
             ' ${selection.period.comparisonLabel}',
             style: theme.textTheme.bodyMedium?.copyWith(color: color),
           ),

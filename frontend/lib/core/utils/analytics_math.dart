@@ -107,13 +107,30 @@ abstract final class AnalyticsMath {
     };
   }
 
-  /// Предыдущий период той же длины непосредственно перед текущим.
+  /// Предыдущий период непосредственно перед текущим.
+  ///
+  /// Для месяцев и годов предыдущий период календарный (не сдвиг на длину
+  /// текущего: у февраля и високосных годов длина другая). Неделя сдвигается
+  /// ровно на семь дней, произвольный период — на свою длину.
   static PeriodRange previousRangeFor(
     AnalyticsPeriod period,
     DateTime now, {
     PeriodRange? customRange,
   }) {
-    return rangeFor(period, now, customRange: customRange).shiftBack();
+    final moment = stripTime(now);
+    return switch (period) {
+      AnalyticsPeriod.week => rangeFor(period, moment).shiftBack(),
+      AnalyticsPeriod.month => PeriodRange(
+        from: DateTime(moment.year, moment.month - 1),
+        to: DateTime(moment.year, moment.month),
+      ),
+      AnalyticsPeriod.year => PeriodRange(
+        from: DateTime(moment.year - 1, 1, 1),
+        to: DateTime(moment.year, 1, 1),
+      ),
+      AnalyticsPeriod.custom => (customRange ?? rangeFor(period, moment))
+          .shiftBack(),
+    };
   }
 
   /// Изменение величины в процентах: `(current − previous) / previous · 100`.
