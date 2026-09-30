@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -5,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'app/app.dart';
 import 'app/budget_alert_coordinator.dart';
 import 'app/providers.dart';
+import 'data/fallback/demo_stores.dart';
 import 'data/local/app_database.dart';
 import 'data/local/connection.dart';
 import 'data/repositories/category_repository_impl.dart';
@@ -21,6 +23,34 @@ void observeBudgetAlerts(ProviderContainer container) {
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Веб-демо: нативная БД (SQLCipher) в браузере недоступна — запускаемся
+  // с in-memory-хранилищами, данные живут до перезагрузки страницы.
+  if (kIsWeb) {
+    final container = ProviderContainer(
+      overrides: [
+        operationRepositoryProvider.overrideWithValue(
+          DemoOperationRepository(),
+        ),
+        categoryRepositoryProvider.overrideWithValue(
+          DemoCategoryRepository(),
+        ),
+        categorizationRepositoryProvider.overrideWithValue(
+          DemoCategorizationRepository(),
+        ),
+        appSettingsStoreProvider.overrideWithValue(DemoAppSettingsStore()),
+        notificationsPortProvider.overrideWithValue(DemoSonaNotifications()),
+      ],
+    );
+    observeBudgetAlerts(container);
+    runApp(
+      UncontrolledProviderScope(
+        container: container,
+        child: const SonaApp(),
+      ),
+    );
+    return;
+  }
 
   const storage = FlutterSecureStorage();
   final encryptionKey = await DatabaseKeyProvider(storage).getOrCreate();

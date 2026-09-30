@@ -230,6 +230,8 @@ void main() {
   testWidgets('быстрое действие «Бюджет» открывает экран бюджета', (tester) async {
     await pumpScreen(tester, goToBudget: false);
 
+    await tester.ensureVisible(find.text('Бюджет'));
+    await tester.pump(const Duration(milliseconds: 300));
     await tester.tap(find.text('Бюджет'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));

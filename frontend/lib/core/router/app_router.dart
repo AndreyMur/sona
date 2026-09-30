@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
 import '../../domain/models/app_settings.dart';
+import '../../features/analytics/presentation/analytics_screen.dart';
 import '../../features/budget/presentation/budget_screen.dart';
 import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
@@ -19,6 +20,7 @@ abstract final class AppRoutes {
   static const String record = '/record';
   static const String categories = '/categories';
   static const String budget = '/budget';
+  static const String analytics = '/analytics';
   static const String onboarding = '/onboarding';
 
   /// Служебный экран: показывается, пока настройки ещё загружаются.
@@ -113,6 +115,10 @@ GoRouter buildRouter({
       GoRoute(
         path: AppRoutes.budget,
         builder: (context, state) => const BudgetScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.analytics,
+        builder: (context, state) => const AnalyticsScreen(),
       ),
       GoRoute(
         path: AppRoutes.onboarding,

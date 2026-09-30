@@ -120,6 +120,50 @@ void main() {
     );
   });
 
+  test('расходы по месяцам с разбивкой по категориям', () async {
+    await db.insertParsedOperations([
+      ParsedOperation(
+        type: OperationType.expense,
+        amount: 800,
+        category: 'Продукты',
+        date: DateTime(2026, 9, 5),
+      ),
+      ParsedOperation(
+        type: OperationType.expense,
+        amount: 400,
+        category: 'Транспорт',
+        date: DateTime(2026, 9, 20),
+      ),
+      ParsedOperation(
+        type: OperationType.expense,
+        amount: 700,
+        category: 'Продукты',
+        date: DateTime(2026, 9, 25),
+      ),
+      ParsedOperation(
+        type: OperationType.expense,
+        amount: 1500,
+        category: 'Одежда',
+        date: DateTime(2026, 8, 10),
+      ),
+      ParsedOperation(
+        type: OperationType.income,
+        amount: 10000,
+        category: 'Доход',
+        date: DateTime(2026, 9, 5),
+      ),
+    ], source: OperationSource.manual);
+
+    final groups = await repository.expensesByMonthCategory(
+      from: DateTime(2026, 8, 1),
+      to: DateTime(2026, 10, 1),
+    );
+
+    expect(groups.keys, ['2026-08', '2026-09']);
+    expect(groups['2026-09'], {'Продукты': 1500, 'Транспорт': 400});
+    expect(groups['2026-08'], {'Одежда': 1500});
+  });
+
   test('ключи лимитов согласованы с настройками', () async {
     await db.insertParsedOperations([
       ParsedOperation(
