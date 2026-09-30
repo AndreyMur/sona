@@ -42,9 +42,16 @@ class AnalyticsScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.md),
             _SpendSummaryCard(selection: selection, overview: overview),
             const SizedBox(height: AppSpacing.md),
+            if (selection.period == AnalyticsPeriod.custom)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                child: _CustomPeriodCard(selection: selection),
+              ),
             _MonthlyTrendCard(overview: overview),
             const SizedBox(height: AppSpacing.md),
             _TopCategoriesCard(overview: overview),
+            const SizedBox(height: AppSpacing.md),
+            _CategoryFilterCard(overview: overview),
           ],
         ),
       ),
@@ -330,6 +337,161 @@ class _CategoryShareRow extends StatelessWidget {
           backgroundColor: sona.accentSoft.withValues(alpha: 0.4),
         ),
       ],
+    );
+  }
+}
+
+/// Карточка произвольного периода: выбор диапазона дат календарём.
+class _CustomPeriodCard extends ConsumerWidget {
+  const _CustomPeriodCard({required this.selection});
+
+  final AnalyticsSelection selection;
+
+  Future<void> _pickRange(BuildContext context, WidgetRef ref) async {
+    final now = DateTime.now();
+    final current = selection.customRange ??
+        selection.rangeFor(now);
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1, 12, 31),
+      initialDateRange: DateTimeRange(start: current.from, end: current.to),
+    );
+    if (picked == null || !context.mounted) return;
+    ref.read(analyticsSelectionProvider.notifier).setCustomRange(
+          PeriodRange(
+            from: AnalyticsMath.stripTime(picked.start),
+            to: AnalyticsMath.stripTime(picked.end).add(const Duration(days: 1)),
+          ),
+        );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final caption = SonaFormat.periodCaption(
+      selection.rangeFor(DateTime.now()),
+      AnalyticsPeriod.custom,
+    );
+
+    return Card(
+      child: InkWell(
+        onTap: () => _pickRange(context, ref),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: AppSpacing.md,
+            horizontal: AppSpacing.lg,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.calendar_month_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'Диапазон: $caption',
+                  style: theme.textTheme.titleMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Фильтр аналитики по категориям периода: чипы категорий.
+/// Пустое множество в выборе — показываются все категории.
+class _CategoryFilterCard extends ConsumerWidget {
+  const _CategoryFilterCard({required this.overview});
+
+  final AsyncValue<AnalyticsOverview> overview;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final sona = context.sonaColors;
+    final selection = ref.watch(analyticsSelectionProvider);
+    final categories = (overview.asData?.value.categories ?? const {})
+        .keys
+        .toList()
+      ..sort();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Фильтр по категориям',
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                if (selection.filtersCategories)
+                  IconButton(
+                    tooltip: 'Сбросить фильтр',
+                    icon: Icon(
+                      Icons.filter_alt_off_rounded,
+                      size: 20,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    onPressed: () => ref
+                        .read(analyticsSelectionProvider.notifier)
+                        .clearCategories(),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            if (categories.isEmpty)
+              Text(
+                'За период нет расходов',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              )
+            else
+              Wrap(
+                spacing: AppSpacing.xs,
+                runSpacing: AppSpacing.xs,
+                children: [
+                  for (final category in categories)
+                    FilterChip(
+                      label: Text(category),
+                      selected:
+                          selection.categories.contains(category),
+                      onSelected: (_) => ref
+                          .read(analyticsSelectionProvider.notifier)
+                          .toggleCategory(category),
+                    ),
+                ],
+              ),
+            if (selection.filtersCategories) ...[
+              const SizedBox(height: AppSpacing.sm),
+              Text(
+                'Показаны: ${selection.categories.length} из ${categories.length}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: sona.onAccentSoft,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
