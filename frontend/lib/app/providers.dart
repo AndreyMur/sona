@@ -237,6 +237,15 @@ final monthlyIncomeProvider = FutureProvider<double>((ref) {
       .totalByType(OperationType.income, from: from, to: to);
 });
 
+/// Баланс: все доходы минус все расходы.
+final balanceProvider = FutureProvider<double>((ref) async {
+  ref.watch(recentOperationsProvider);
+  final repository = ref.watch(operationRepositoryProvider);
+  final income = await repository.totalByType(OperationType.income);
+  final expense = await repository.totalByType(OperationType.expense);
+  return income - expense;
+});
+
 /// Разрешения на микрофон и уведомления.
 final permissionServiceProvider = Provider<PermissionService>(
   (ref) => const PermissionHandlerService(),

@@ -61,6 +61,7 @@ class _OperationEditSheetState extends ConsumerState<_OperationEditSheet> {
   @override
   Widget build(BuildContext context) {
     final categories = ref.watch(categoriesProvider).value ?? const [];
+    final currency = ref.watch(currencyProvider);
     final current = _findCategory(categories, _category);
     final subcategories = current?.subcategories ?? const <String>[];
 
@@ -99,7 +100,7 @@ class _OperationEditSheetState extends ConsumerState<_OperationEditSheet> {
             controller: _amountController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: InputDecoration(
-              labelText: 'Сумма, ₽',
+              labelText: 'Сумма, ${currency.symbol}',
               errorText: _amountError,
             ),
           ),

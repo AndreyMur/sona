@@ -75,7 +75,9 @@ GoRouter buildRouter({
       ),
       GoRoute(
         path: AppRoutes.record,
-        builder: (context, state) => const RecordScreen(),
+        builder: (context, state) => RecordScreen(
+          startWithText: state.uri.queryParameters['mode'] == 'text',
+        ),
       ),
       GoRoute(
         path: AppRoutes.categories,
