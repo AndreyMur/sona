@@ -40,6 +40,23 @@ final routerProvider = Provider<GoRouter>((ref) {
   );
 });
 
+/// Преобразует deep link схемы `sona://` в маршрут приложения.
+///
+/// Поддерживает `sona://record`, `sona://app/record` и параметры вида
+/// `sona://record?autostart=1`. Для прочих ссылок возвращает `null`.
+String? deepLinkToLocation(Uri uri) {
+  if (uri.scheme != 'sona') return null;
+  final isRecord =
+      uri.host == 'record' ||
+      (uri.host == 'app' && uri.path == AppRoutes.record) ||
+      uri.path == AppRoutes.record;
+  if (!isRecord) return null;
+  final autostart = uri.queryParameters['autostart'];
+  return autostart == null
+      ? AppRoutes.record
+      : '${AppRoutes.record}?autostart=$autostart';
+}
+
 /// Конфигурация навигации.
 ///
 /// Пока онбординг не пройден, все маршруты ведут на `/onboarding`;
@@ -54,6 +71,10 @@ GoRouter buildRouter({
 
     if (completed == null) {
       return location == AppRoutes.loading ? null : AppRoutes.loading;
+    }
+    final deepLink = deepLinkToLocation(state.uri);
+    if (deepLink != null) {
+      return completed ? deepLink : AppRoutes.onboarding;
     }
     if (location == AppRoutes.loading) {
       return completed ? AppRoutes.home : AppRoutes.onboarding;
@@ -75,9 +96,13 @@ GoRouter buildRouter({
       ),
       GoRoute(
         path: AppRoutes.record,
-        builder: (context, state) => RecordScreen(
-          startWithText: state.uri.queryParameters['mode'] == 'text',
-        ),
+        builder: (context, state) {
+          final query = state.uri.queryParameters;
+          return RecordScreen(
+            startWithText: query['mode'] == 'text',
+            autoListen: query['autostart'] == '1',
+          );
+        },
       ),
       GoRoute(
         path: AppRoutes.categories,
