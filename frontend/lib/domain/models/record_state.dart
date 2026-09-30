@@ -1,11 +1,15 @@
 import 'package:flutter/foundation.dart';
 
 import 'operation.dart';
+import 'shortcut.dart';
 
 /// Состояния экрана записи (ТЗ, раздел 6.3).
 enum RecordStage {
   /// Ожидание — пульсирующий микрофон.
   idle,
+
+  /// Ручной текстовый ввод.
+  textInput,
 
   /// Слушаю — идёт запись.
   listening,
@@ -15,6 +19,9 @@ enum RecordStage {
 
   /// Разобрал — готовы карточки операций.
   parsed,
+
+  /// Шорткат — показан результат «Баланс» / «Сколько на …» / «Отмена».
+  shortcut,
 
   /// Сохранено — операции записаны в БД.
   saved,
@@ -37,6 +44,10 @@ class RecordState {
     this.model,
     this.fallbackUsed = false,
     this.offline = false,
+    this.canRefineOnline = false,
+    this.refineError,
+    this.shortcut,
+    this.source = OperationSource.voice,
     this.savedCount = 0,
   });
 
@@ -63,6 +74,18 @@ class RecordState {
   /// Признак локального (офлайн) разбора.
   final bool offline;
 
+  /// Появилась ли сеть — доступна кнопка «Уточнить через AI».
+  final bool canRefineOnline;
+
+  /// Ошибка повторного AI-разбора офлайн-операции.
+  final String? refineError;
+
+  /// Результат выполненного шортката.
+  final ShortcutResult? shortcut;
+
+  /// Источник операций: голос или ручной текст.
+  final OperationSource source;
+
   /// Сколько операций сохранено на шаге «Сохранено».
   final int savedCount;
 
@@ -79,6 +102,10 @@ class RecordState {
     Object? model = _unset,
     bool? fallbackUsed,
     bool? offline,
+    bool? canRefineOnline,
+    Object? refineError = _unset,
+    Object? shortcut = _unset,
+    OperationSource? source,
     int? savedCount,
   }) {
     return RecordState(
@@ -98,6 +125,14 @@ class RecordState {
       model: model == _unset ? this.model : model as String?,
       fallbackUsed: fallbackUsed ?? this.fallbackUsed,
       offline: offline ?? this.offline,
+      canRefineOnline: canRefineOnline ?? this.canRefineOnline,
+      refineError: refineError == _unset
+          ? this.refineError
+          : refineError as String?,
+      shortcut: shortcut == _unset
+          ? this.shortcut
+          : shortcut as ShortcutResult?,
+      source: source ?? this.source,
       savedCount: savedCount ?? this.savedCount,
     );
   }

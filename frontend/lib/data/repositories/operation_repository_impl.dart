@@ -34,4 +34,18 @@ class DriftOperationRepository implements OperationRepository {
 
   @override
   Future<void> delete(int id) => _db.deleteOperation(id);
+
+  @override
+  Future<double> totalByType(
+    OperationType type, {
+    DateTime? from,
+    DateTime? to,
+  }) => _db.sumAmounts(type: type, from: from, to: to);
+
+  @override
+  Future<double> totalByCategory(
+    String category, {
+    DateTime? from,
+    DateTime? to,
+  }) => _db.sumAmounts(category: category, from: from, to: to);
 }

@@ -129,6 +129,31 @@ class AppDatabase extends _$AppDatabase {
     return (delete(operations)..where((t) => t.id.equals(id))).go();
   }
 
+  /// Сумма операций с фильтрами по типу, категории и периоду `[from, to)`.
+  Future<double> sumAmounts({
+    OperationType? type,
+    String? category,
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final total = operations.amount.sum();
+    final query = selectOnly(operations)..addColumns([total]);
+    if (type != null) {
+      query.where(operations.type.equals(type.wireValue));
+    }
+    if (category != null) {
+      query.where(operations.category.equals(category));
+    }
+    if (from != null) {
+      query.where(operations.date.isBiggerOrEqualValue(from));
+    }
+    if (to != null) {
+      query.where(operations.date.isSmallerThanValue(to));
+    }
+    final row = await query.getSingle();
+    return row.read(total) ?? 0;
+  }
+
   Future<int> countOperations() async {
     final count = operations.id.count();
     final query = selectOnly(operations)..addColumns([count]);

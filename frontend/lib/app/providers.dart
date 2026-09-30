@@ -10,12 +10,15 @@ import '../data/remote/odirouter_client.dart';
 import '../data/repositories/category_repository_impl.dart';
 import '../data/repositories/operation_repository_impl.dart';
 import '../data/services/audio_recorder_service.dart';
+import '../data/services/connectivity_service_impl.dart';
 import '../data/services/device_identity_store.dart';
+import '../data/services/local_text_parser.dart';
 import '../data/services/recording_file_store.dart';
 import '../domain/repositories/operation_repository.dart';
 import '../domain/models/category.dart';
 import '../domain/models/operation.dart';
 import '../domain/services/audio_recorder.dart';
+import '../domain/services/connectivity_service.dart';
 import '../domain/services/recognition_service.dart';
 import '../domain/services/recording_file_store.dart';
 
@@ -74,6 +77,16 @@ final speechRecognitionProvider = Provider<SpeechRecognitionService>(
 /// Разбор текста в операции.
 final textParsingProvider = Provider<TextParsingService>(
   (ref) => ref.watch(odiRouterClientProvider),
+);
+
+/// Локальный офлайн-разбор текста (регулярки + словарь категорий).
+final localTextParserProvider = Provider<TextParsingService>(
+  (ref) => const LocalTextParser(),
+);
+
+/// Отслеживание доступности сети.
+final connectivityProvider = Provider<ConnectivityService>(
+  (ref) => ConnectivityPlusService(),
 );
 
 /// Запись аудио.
