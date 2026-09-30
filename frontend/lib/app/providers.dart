@@ -14,6 +14,7 @@ import '../data/repositories/operation_repository_impl.dart';
 import '../data/services/audio_recorder_service.dart';
 import '../data/services/connectivity_service_impl.dart';
 import '../data/services/device_identity_store.dart';
+import '../data/services/local_notification_service.dart';
 import '../data/services/local_text_parser.dart';
 import '../data/services/permission_service_impl.dart';
 import '../data/services/recording_file_store.dart';
@@ -31,6 +32,7 @@ import '../domain/services/connectivity_service.dart';
 import '../domain/services/learning_text_parser.dart';
 import '../domain/services/permission_service.dart';
 import '../domain/services/recognition_service.dart';
+import '../domain/services/notification_service.dart';
 import '../domain/services/recording_file_store.dart';
 
 /// Защищённое хранилище секретов приложения.
@@ -237,6 +239,15 @@ class AppSettingsController extends AsyncNotifier<AppSettings> {
     );
   }
 
+  /// Добавляет маркеры отправленных событий уведомлений (идемпотентность).
+  Future<void> addAlertMarkers(Set<String> markers) async {
+    if (markers.isEmpty) return;
+    final current = state.value ?? const AppSettings();
+    await _update(current.copyWith(
+      alertMarkers: {...current.alertMarkers, ...markers},
+    ));
+  }
+
   Future<void> _update(AppSettings settings) async {
     state = AsyncData(settings);
     await ref.read(appSettingsStoreProvider).save(settings);
@@ -427,4 +438,9 @@ final budgetCycleProvider =
 /// Разрешения на микрофон и уведомления.
 final permissionServiceProvider = Provider<PermissionService>(
   (ref) => const PermissionHandlerService(),
+);
+
+/// Порт доставки локальных уведомлений.
+final notificationsPortProvider = Provider<SonaNotifications>(
+  (ref) => LocalNotificationsService(),
 );

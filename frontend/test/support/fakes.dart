@@ -11,6 +11,7 @@ import 'package:sona/domain/services/connectivity_service.dart';
 import 'package:sona/domain/services/permission_service.dart';
 import 'package:sona/domain/services/recognition_service.dart';
 import 'package:sona/domain/services/recording_file_store.dart';
+import 'package:sona/domain/services/notification_service.dart';
 
 /// Поддельная запись аудио: не обращается к микрофону.
 class FakeAudioRecorder implements AudioRecorderPort {
@@ -246,6 +247,41 @@ class FakePermissionService implements PermissionService {
     return grantOnRequest
         ? SonaPermissionStatus.granted
         : SonaPermissionStatus.denied;
+  }
+}
+
+/// Поддельный порт уведомлений: только счётчики и журнал показов.
+class FakeSonaNotifications implements SonaNotifications {
+  final List<({int id, String title, String body})> shown = [];
+  final List<({int hour, int minute})> scheduledDaily = [];
+  int cancels = 0;
+  int initialized = 0;
+
+  @override
+  Future<void> initialize() async {
+    initialized++;
+  }
+
+  @override
+  Future<void> show({
+    required int id,
+    required String title,
+    required String body,
+  }) async {
+    shown.add((id: id, title: title, body: body));
+  }
+
+  @override
+  Future<void> scheduleDailyReminder({
+    required int hour,
+    required int minute,
+  }) async {
+    scheduledDaily.add((hour: hour, minute: minute));
+  }
+
+  @override
+  Future<void> cancelDailyReminder() async {
+    cancels++;
   }
 }
 

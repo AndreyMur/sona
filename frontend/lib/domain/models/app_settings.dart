@@ -25,6 +25,7 @@ class AppSettings {
     this.carryOverEnabled = false,
     this.carryOverAmount,
     this.lastProcessedMonth,
+    this.alertMarkers = const <String>{},
   });
 
   /// Пройден ли онбординг. Пока `false` — приложение показывает онбординг.
@@ -57,6 +58,12 @@ class AppSettings {
   /// Месяц («ГГГГ-ММ»), для которого остаток уже переносился.
   final String? lastProcessedMonth;
 
+  /// Маркеры уже отправленных событий уведомлений (idемпотентность алертов).
+  ///
+  /// Например: `thr:2026-09:80` — порог 80% уведомлён за сентябрь,
+  /// `anomaly:2026-09-15` — аномалия трат уже сообщена в этот день.
+  final Set<String> alertMarkers;
+
   /// Список категорий, которые нужно показывать пользователю.
   ///
   /// Пустое множество трактуется как «все категории по умолчанию».
@@ -83,6 +90,7 @@ class AppSettings {
     bool? carryOverEnabled,
     Object? carryOverAmount = _unset,
     Object? lastProcessedMonth = _unset,
+    Set<String>? alertMarkers,
   }) {
     return AppSettings(
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
@@ -102,6 +110,7 @@ class AppSettings {
       lastProcessedMonth: lastProcessedMonth == _unset
           ? this.lastProcessedMonth
           : lastProcessedMonth as String?,
+      alertMarkers: alertMarkers ?? this.alertMarkers,
     );
   }
 
@@ -115,6 +124,7 @@ class AppSettings {
     'carryOverEnabled': carryOverEnabled,
     'carryOverAmount': carryOverAmount,
     'lastProcessedMonth': lastProcessedMonth,
+    'alertMarkers': alertMarkers.toList(),
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -139,6 +149,11 @@ class AppSettings {
       carryOverEnabled: json['carryOverEnabled'] as bool? ?? false,
       carryOverAmount: (json['carryOverAmount'] as num?)?.toDouble(),
       lastProcessedMonth: json['lastProcessedMonth'] as String?,
+      alertMarkers:
+          (json['alertMarkers'] as List<dynamic>?)
+              ?.map((value) => value.toString())
+              .toSet() ??
+          const <String>{},
     );
   }
 
