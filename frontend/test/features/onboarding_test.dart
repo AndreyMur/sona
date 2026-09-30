@@ -1,8 +1,11 @@
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sona/app/providers.dart';
+import 'package:sona/core/router/app_router.dart';
 import 'package:sona/core/theme/app_theme.dart';
+import 'package:sona/data/local/app_database.dart';
 import 'package:sona/features/onboarding/presentation/onboarding_screen.dart';
 
 import '../support/fakes.dart';
@@ -10,11 +13,15 @@ import '../support/fakes.dart';
 void main() {
   late FakeAppSettingsStore store;
   late FakePermissionService permissions;
+  late AppDatabase db;
 
   setUp(() {
     store = FakeAppSettingsStore();
     permissions = FakePermissionService();
+    db = AppDatabase(NativeDatabase.memory());
   });
+
+  tearDown(() => db.close());
 
   Future<void> pumpScreen(WidgetTester tester) async {
     await tester.pumpWidget(
@@ -31,6 +38,52 @@ void main() {
     );
     await tester.pump();
   }
+
+  testWidgets(
+    'новый пользователь проходит онбординг и попадает на главную',
+    (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          appDatabaseProvider.overrideWithValue(db),
+          appSettingsStoreProvider.overrideWithValue(store),
+          permissionServiceProvider.overrideWithValue(permissions),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final router = container.read(routerProvider);
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            theme: AppTheme.light(),
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Онбординг показан первым экраном.
+      expect(find.text('Скажи — я запишу'), findsOneWidget);
+
+      await tester.tap(find.text('Пропустить'));
+      await tester.pump();
+      await tester.tap(find.text('Начать пользоваться'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+
+      // После прохождения онбординга редирект ведёт на главную.
+      expect(find.text('Совет дня'), findsOneWidget);
+      expect(find.text('Сказать'), findsOneWidget);
+      expect(store.settings.onboardingCompleted, isTrue);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(milliseconds: 1));
+    },
+  );
 
   testWidgets('показывает четыре слайда последовательно', (tester) async {
     await pumpScreen(tester);
