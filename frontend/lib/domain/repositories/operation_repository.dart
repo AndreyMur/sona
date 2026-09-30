@@ -21,6 +21,20 @@ abstract interface class OperationRepository {
 
   /// Удаляет операцию по локальному id.
   Future<void> delete(int id);
+
+  /// Сумма операций указанного [type] за период `[from, to)`.
+  Future<double> totalByType(
+    OperationType type, {
+    DateTime? from,
+    DateTime? to,
+  });
+
+  /// Сумма операций по категории [category] за период `[from, to)`.
+  Future<double> totalByCategory(
+    String category, {
+    DateTime? from,
+    DateTime? to,
+  });
 }
 
 /// Хранилище категорий и подкатегорий.

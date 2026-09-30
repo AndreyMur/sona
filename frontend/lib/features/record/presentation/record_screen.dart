@@ -7,6 +7,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
 import '../../../domain/models/operation.dart';
 import '../../../domain/models/record_state.dart';
+import '../../../domain/models/shortcut.dart';
 import 'record_controller.dart';
 import 'widgets/operation_card.dart';
 import 'widgets/operation_edit_sheet.dart';
@@ -59,6 +60,13 @@ class RecordScreen extends ConsumerWidget {
         return _IdleView(
           key: const ValueKey('idle'),
           onStart: controller.startListening,
+          onWrite: controller.startTextInput,
+        );
+      case RecordStage.textInput:
+        return _TextInputView(
+          key: const ValueKey('textInput'),
+          onSubmit: controller.submitText,
+          onCancel: controller.cancelTextInput,
         );
       case RecordStage.listening:
         return _ListeningView(
@@ -80,6 +88,13 @@ class RecordScreen extends ConsumerWidget {
           onEdit: (index, operation) => controller.updateOperation(index, operation),
           onRemove: controller.removeOperation,
           onCancel: controller.discard,
+          onRefine: controller.refineWithAi,
+        );
+      case RecordStage.shortcut:
+        return _ShortcutView(
+          key: const ValueKey('shortcut'),
+          result: state.shortcut,
+          onDone: controller.reset,
         );
       case RecordStage.saved:
         return _SavedView(
@@ -93,15 +108,21 @@ class RecordScreen extends ConsumerWidget {
           key: const ValueKey('error'),
           message: state.errorMessage,
           onRetry: controller.reset,
+          onWrite: controller.startTextInput,
         );
     }
   }
 }
 
 class _IdleView extends StatelessWidget {
-  const _IdleView({super.key, required this.onStart});
+  const _IdleView({
+    super.key,
+    required this.onStart,
+    required this.onWrite,
+  });
 
   final Future<void> Function() onStart;
+  final VoidCallback onWrite;
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +146,138 @@ class _IdleView extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xxl),
           PulsingMicButton(onPressed: onStart),
+          const SizedBox(height: AppSpacing.md),
+          OutlinedButton.icon(
+            onPressed: onWrite,
+            icon: const Icon(Icons.keyboard_rounded, size: 20),
+            label: const Text('Написать'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TextInputView extends StatefulWidget {
+  const _TextInputView({super.key, required this.onSubmit, required this.onCancel});
+
+  final Future<void> Function(String text) onSubmit;
+  final VoidCallback onCancel;
+
+  @override
+  State<_TextInputView> createState() => _TextInputViewState();
+}
+
+class _TextInputViewState extends State<_TextInputView> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    widget.onSubmit(text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Напишите операцию', style: theme.textTheme.displayMedium),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          'AI разберёт текст так же, как голосовую фразу',
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.lg),
+        TextField(
+          controller: _controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          textCapitalization: TextCapitalization.sentences,
+          onSubmitted: (_) => _submit(),
+          decoration: const InputDecoration(
+            hintText: 'Например: кофе 450',
+            labelText: 'Операция',
+          ),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Разобрать'),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        OutlinedButton(
+          onPressed: widget.onCancel,
+          child: const Text('Назад'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ShortcutView extends StatelessWidget {
+  const _ShortcutView({super.key, required this.result, required this.onDone});
+
+  final ShortcutResult? result;
+  final VoidCallback onDone;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sona = context.sonaColors;
+    final shortcut = result;
+
+    if (shortcut == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final isCancel = shortcut.kind == VoiceShortcutKind.cancel;
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              color: sona.accentSoft,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isCancel ? Icons.undo_rounded : Icons.account_balance_wallet_rounded,
+              size: 48,
+              color: sona.onAccentSoft,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(shortcut.title, style: theme.textTheme.titleLarge),
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            shortcut.value,
+            style: theme.textTheme.displayLarge,
+            textAlign: TextAlign.center,
+          ),
+          if (shortcut.subtitle != null) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              shortcut.subtitle!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          const SizedBox(height: AppSpacing.xl),
+          FilledButton(onPressed: onDone, child: const Text('Готово')),
         ],
       ),
     );
@@ -225,6 +378,7 @@ class _ParsedView extends StatelessWidget {
     required this.onEdit,
     required this.onRemove,
     required this.onCancel,
+    required this.onRefine,
   });
 
   final RecordState state;
@@ -232,6 +386,7 @@ class _ParsedView extends StatelessWidget {
   final void Function(int index, ParsedOperation operation) onEdit;
   final void Function(int index) onRemove;
   final Future<void> Function() onCancel;
+  final Future<void> Function() onRefine;
 
   @override
   Widget build(BuildContext context) {
@@ -251,9 +406,29 @@ class _ParsedView extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        if (state.fallbackUsed) ...[
+        if (state.offline) ...[
+          const SizedBox(height: AppSpacing.xs),
+          const _OfflineBadge(),
+        ] else if (state.fallbackUsed) ...[
           const SizedBox(height: AppSpacing.xs),
           const _FallbackBadge(),
+        ],
+        if (state.offline && state.canRefineOnline) ...[
+          const SizedBox(height: AppSpacing.sm),
+          OutlinedButton.icon(
+            onPressed: state.isBusy ? null : onRefine,
+            icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+            label: const Text('Уточнить через AI'),
+          ),
+        ],
+        if (state.refineError != null) ...[
+          const SizedBox(height: AppSpacing.xs),
+          Text(
+            state.refineError!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.error,
+            ),
+          ),
         ],
         const SizedBox(height: AppSpacing.md),
         Expanded(
@@ -306,6 +481,36 @@ class _FallbackBadge extends StatelessWidget {
         child: Text(
           'Резервный разбор',
           style: TextStyle(fontSize: 12, color: sona.warning),
+        ),
+      ),
+    );
+  }
+}
+
+class _OfflineBadge extends StatelessWidget {
+  const _OfflineBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final sona = context.sonaColors;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: sona.accentSoft,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off_rounded, size: 14, color: sona.onAccentSoft),
+            const SizedBox(width: AppSpacing.xxs),
+            Text(
+              'Офлайн-разбор',
+              style: TextStyle(fontSize: 12, color: sona.onAccentSoft),
+            ),
+          ],
         ),
       ),
     );
@@ -373,10 +578,16 @@ class _SavedView extends StatelessWidget {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({super.key, required this.message, required this.onRetry});
+  const _ErrorView({
+    super.key,
+    required this.message,
+    required this.onRetry,
+    required this.onWrite,
+  });
 
   final String? message;
   final VoidCallback onRetry;
+  final VoidCallback onWrite;
 
   @override
   Widget build(BuildContext context) {
@@ -404,6 +615,12 @@ class _ErrorView extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
           FilledButton(onPressed: onRetry, child: const Text('Попробовать снова')),
+          const SizedBox(height: AppSpacing.xs),
+          OutlinedButton.icon(
+            onPressed: onWrite,
+            icon: const Icon(Icons.keyboard_rounded, size: 20),
+            label: const Text('Ввести текстом'),
+          ),
         ],
       ),
     );

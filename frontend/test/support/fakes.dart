@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:sona/domain/models/operation.dart';
 import 'package:sona/domain/models/recognition.dart';
 import 'package:sona/domain/services/audio_recorder.dart';
+import 'package:sona/domain/services/connectivity_service.dart';
 import 'package:sona/domain/services/recognition_service.dart';
 import 'package:sona/domain/services/recording_file_store.dart';
 
@@ -105,6 +108,29 @@ class FakeTextParsing implements TextParsingService {
     }
     return value;
   }
+}
+
+/// Поддельное отслеживание сети.
+class FakeConnectivityService implements ConnectivityService {
+  FakeConnectivityService({this.online = true});
+
+  bool online;
+  final StreamController<bool> _controller =
+      StreamController<bool>.broadcast();
+
+  @override
+  Future<bool> get isOnline async => online;
+
+  @override
+  Stream<bool> get onStatusChange => _controller.stream;
+
+  /// Меняет статус сети и уведомляет подписчиков.
+  void setOnline(bool value) {
+    online = value;
+    _controller.add(value);
+  }
+
+  void dispose() => _controller.close();
 }
 
 /// Готовый результат разбора с двумя тратами.

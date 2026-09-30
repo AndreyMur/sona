@@ -101,7 +101,7 @@ void main() {
     await controller().stopAndProcess();
 
     expect(state().stage, RecordStage.error);
-    expect(state().errorMessage, 'Нет соединения. Проверьте интернет.');
+    expect(state().errorMessage, 'Нет соединения. Введите операцию текстом.');
   });
 
   test('пустой разбор — ошибка «не удалось найти операцию»', () async {
