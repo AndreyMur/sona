@@ -1,9 +1,14 @@
 import 'dart:async';
 
+import 'package:sona/domain/models/app_settings.dart';
+import 'package:sona/domain/models/categorization_rule.dart';
 import 'package:sona/domain/models/operation.dart';
 import 'package:sona/domain/models/recognition.dart';
+import 'package:sona/domain/repositories/categorization_repository.dart';
+import 'package:sona/domain/services/app_settings_store.dart';
 import 'package:sona/domain/services/audio_recorder.dart';
 import 'package:sona/domain/services/connectivity_service.dart';
+import 'package:sona/domain/services/permission_service.dart';
 import 'package:sona/domain/services/recognition_service.dart';
 import 'package:sona/domain/services/recording_file_store.dart';
 
@@ -110,6 +115,65 @@ class FakeTextParsing implements TextParsingService {
   }
 }
 
+/// Поддельный репозиторий выученных правил категоризации.
+class FakeCategorizationRepository implements CategorizationRepository {
+  FakeCategorizationRepository([List<CategorizationRule>? initial]) {
+    for (final rule in initial ?? const <CategorizationRule>[]) {
+      _rules[rule.id] = rule;
+      _nextId = rule.id + 1 > _nextId ? rule.id + 1 : _nextId;
+    }
+  }
+
+  final Map<int, CategorizationRule> _rules = {};
+  int _nextId = 1;
+  final StreamController<List<CategorizationRule>> _controller =
+      StreamController<List<CategorizationRule>>.broadcast();
+
+  @override
+  Future<List<CategorizationRule>> all() async => _rules.values.toList();
+
+  @override
+  Stream<List<CategorizationRule>> watchAll() => _controller.stream;
+
+  @override
+  Future<CategorizationRule> learn({
+    required String keyword,
+    required String category,
+    String? subcategory,
+  }) async {
+    final existing = _rules.values.where((r) => r.keyword == keyword).toList();
+    if (existing.isNotEmpty) {
+      final old = existing.first;
+      final updated = CategorizationRule(
+        id: old.id,
+        keyword: keyword,
+        category: category,
+        subcategory: subcategory,
+        createdAt: old.createdAt,
+      );
+      _rules[old.id] = updated;
+      _controller.add(_rules.values.toList());
+      return updated;
+    }
+    final rule = CategorizationRule(
+      id: _nextId++,
+      keyword: keyword,
+      category: category,
+      subcategory: subcategory,
+      createdAt: DateTime(2026, 9, 30),
+    );
+    _rules[rule.id] = rule;
+    _controller.add(_rules.values.toList());
+    return rule;
+  }
+
+  @override
+  Future<void> delete(int id) async {
+    _rules.remove(id);
+    _controller.add(_rules.values.toList());
+  }
+}
+
 /// Поддельное отслеживание сети.
 class FakeConnectivityService implements ConnectivityService {
   FakeConnectivityService({this.online = true});
@@ -131,6 +195,58 @@ class FakeConnectivityService implements ConnectivityService {
   }
 
   void dispose() => _controller.close();
+}
+
+/// Поддельное хранилище настроек: без защищённого хранилища.
+class FakeAppSettingsStore implements AppSettingsStore {
+  FakeAppSettingsStore([AppSettings? initial]) :
+        _settings = initial ?? const AppSettings();
+
+  AppSettings _settings;
+
+  AppSettings get settings => _settings;
+  int saves = 0;
+
+  @override
+  Future<AppSettings> load() async => _settings;
+
+  @override
+  Future<void> save(AppSettings settings) async {
+    _settings = settings;
+    saves++;
+  }
+}
+
+/// Поддельные разрешения: без системных диалогов.
+class FakePermissionService implements PermissionService {
+  FakePermissionService({this.initialStatus = SonaPermissionStatus.denied});
+
+  SonaPermissionStatus initialStatus;
+  bool grantOnRequest = true;
+  int microphoneRequests = 0;
+  int notificationRequests = 0;
+
+  @override
+  Future<SonaPermissionStatus> microphoneStatus() async => initialStatus;
+
+  @override
+  Future<SonaPermissionStatus> requestMicrophone() async {
+    microphoneRequests++;
+    return grantOnRequest
+        ? SonaPermissionStatus.granted
+        : SonaPermissionStatus.denied;
+  }
+
+  @override
+  Future<SonaPermissionStatus> notificationStatus() async => initialStatus;
+
+  @override
+  Future<SonaPermissionStatus> requestNotifications() async {
+    notificationRequests++;
+    return grantOnRequest
+        ? SonaPermissionStatus.granted
+        : SonaPermissionStatus.denied;
+  }
 }
 
 /// Готовый результат разбора с двумя тратами.

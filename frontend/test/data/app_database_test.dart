@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNull;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -109,6 +109,78 @@ void main() {
       expect(categories, hasLength(1));
       expect(categories.single.name, 'Еда');
       expect(categories.single.subcategories, ['Кафе']);
+    });
+
+    test('addCategory, renameCategory, deleteCategory работают каскадно', () async {
+      await db.seedCategories(kDefaultCategories);
+
+      final id = await db.addCategory('Хобби');
+      var categories = await db.categoriesWithSubcategories();
+      expect(categories.any((c) => c.name == 'Хобби'), isTrue);
+
+      await db.addSubcategory(id, 'Настолки');
+      var hobby = categories = await db.categoriesWithSubcategories();
+      expect(
+        hobby.firstWhere((c) => c.id == id).subcategories,
+        contains('Настолки'),
+      );
+
+      await db.renameCategory(id, 'Отдых');
+      await db.renameSubcategory(id, 'Настолки', 'Настольные игры');
+      categories = await db.categoriesWithSubcategories();
+      final renamed = categories.firstWhere((c) => c.id == id);
+      expect(renamed.name, 'Отдых');
+      expect(renamed.subcategories, contains('Настольные игры'));
+
+      await db.deleteCategory(id);
+      categories = await db.categoriesWithSubcategories();
+      expect(categories.any((c) => c.id == id), isFalse);
+      final subs = await db.select(db.subcategories).get();
+      expect(subs.any((s) => s.name == 'Настольные игры'), isFalse);
+    });
+
+    test('deleteSubcategory удаляет подкатегорию', () async {
+      await db.seedCategories(kDefaultCategories);
+
+      final productsBefore =
+          (await db.categoriesWithSubcategories()).firstWhere(
+        (c) => c.name == 'Продукты',
+      );
+      await db.deleteSubcategory(productsBefore.id, 'Рынок');
+
+      final products =
+          (await db.categoriesWithSubcategories()).firstWhere(
+        (c) => c.name == 'Продукты',
+      );
+      expect(products.subcategories, isNot(contains('Рынок')));
+      expect(products.subcategories, contains('Супермаркет'));
+    });
+
+    test('правила категоризации создаются, обновляются и удаляются', () async {
+      final created = await db.upsertRule(
+        keyword: 'кофе',
+        category: 'Кафе и рестораны',
+        subcategory: 'Кафе',
+      );
+      expect(created.keyword, 'кофе');
+
+      final updated = await db.upsertRule(
+        keyword: 'кофе',
+        category: 'Продукты',
+      );
+      expect(updated.id, created.id);
+      expect(updated.category, 'Продукты');
+      expect(updated.subcategory, isNull);
+
+      final all = await db.allRules();
+      expect(all, hasLength(1));
+      expect(all.single.category, 'Продукты');
+
+      final watched = await db.watchRules().first;
+      expect(watched.single.keyword, 'кофе');
+
+      await db.deleteRule(created.id);
+      expect(await db.allRules(), isEmpty);
     });
   });
 

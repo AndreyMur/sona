@@ -1,29 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/router/app_router.dart';
 import '../core/theme/app_theme.dart';
 
 /// Корневое приложение Sona.
-class SonaApp extends StatefulWidget {
+class SonaApp extends ConsumerWidget {
   const SonaApp({super.key});
 
   @override
-  State<SonaApp> createState() => _SonaAppState();
-}
-
-class _SonaAppState extends State<SonaApp> {
-  final _router = buildRouter();
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
       title: 'Sona',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,
-      routerConfig: _router,
+      routerConfig: ref.watch(routerProvider),
       locale: const Locale('ru'),
       supportedLocales: const [Locale('ru'), Locale('en')],
       localizationsDelegates: const [

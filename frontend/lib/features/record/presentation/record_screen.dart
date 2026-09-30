@@ -16,11 +16,43 @@ import 'widgets/transcript_card.dart';
 import 'widgets/voice_waveform.dart';
 
 /// Ключевой экран приложения: голос → сохранённая операция.
-class RecordScreen extends ConsumerWidget {
-  const RecordScreen({super.key});
+///
+/// [startWithText] открывает экран сразу в режиме ручного ввода,
+/// [autoListen] начинает запись без тапа по микрофону — быстрый запуск
+/// по deep link: тап по иконке → микрофон уже слушает.
+class RecordScreen extends ConsumerStatefulWidget {
+  const RecordScreen({
+    super.key,
+    this.startWithText = false,
+    this.autoListen = false,
+  });
+
+  final bool startWithText;
+  final bool autoListen;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<RecordScreen> createState() => _RecordScreenState();
+}
+
+class _RecordScreenState extends ConsumerState<RecordScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.autoListen || widget.startWithText) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final controller = ref.read(recordControllerProvider.notifier);
+        if (widget.autoListen) {
+          controller.startListening();
+        } else {
+          controller.startTextInput();
+        }
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(recordControllerProvider);
     final controller = ref.read(recordControllerProvider.notifier);
 
