@@ -98,12 +98,24 @@ class HomeScreen extends ConsumerWidget {
                       onTap: () => context.push(AppRoutes.categories),
                     ),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Row(
+                children: [
                   Expanded(
                     child: _QuickActionCard(
                       icon: Icons.savings_rounded,
                       label: 'Бюджет',
                       onTap: () => context.push(AppRoutes.budget),
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.query_stats_rounded,
+                      label: 'Аналитика',
+                      onTap: () => context.push(AppRoutes.analytics),
                     ),
                   ),
                 ],

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../core/config/app_config.dart';
+import '../core/utils/analytics_math.dart';
 import '../core/utils/budget_math.dart';
 import '../data/local/app_database.dart';
 import '../data/remote/interceptors.dart';
@@ -339,6 +340,149 @@ final balanceProvider = FutureProvider<double>((ref) async {
   final income = await repository.totalByType(OperationType.income);
   final expense = await repository.totalByType(OperationType.expense);
   return income - expense;
+});
+
+/// Выбор пользователя на экране аналитики: период, произвольный диапазон
+/// и фильтр по категориям (пустое множество — все категории).
+class AnalyticsSelection {
+  const AnalyticsSelection({
+    this.period = AnalyticsPeriod.week,
+    this.customRange,
+    this.categories = const {},
+  });
+
+  /// Таб периода: Неделя / Месяц / Год / Период.
+  final AnalyticsPeriod period;
+
+  /// Произвольный диапазон для таба «Период».
+  final PeriodRange? customRange;
+
+  /// Выбранные категории-фильтр (пустое множество — без фильтра).
+  final Set<String> categories;
+
+  /// Применяется ли фильтр по категориям.
+  bool get filtersCategories => categories.isNotEmpty;
+
+  /// Диапазон выбранного периода, содержащий [now].
+  PeriodRange rangeFor(DateTime now) => AnalyticsMath.rangeFor(
+    period,
+    now,
+    customRange: customRange,
+  );
+
+  /// Диапазон предыдущего периода той же длины.
+  PeriodRange previousRangeFor(DateTime now) =>
+      AnalyticsMath.previousRangeFor(
+        period,
+        now,
+        customRange: customRange,
+      );
+}
+
+/// Управляет табами периода и фильтрами аналитики.
+class AnalyticsSelectionController extends Notifier<AnalyticsSelection> {
+  @override
+  AnalyticsSelection build() => const AnalyticsSelection();
+
+  /// Переключает таб периода.
+  void setPeriod(AnalyticsPeriod period) {
+    state = AnalyticsSelection(
+      period: period,
+      customRange: state.customRange,
+      categories: state.categories,
+    );
+  }
+
+  /// Задаёт произвольный диапазон дат для таба «Период».
+  void setCustomRange(PeriodRange range) {
+    state = AnalyticsSelection(
+      period: state.period,
+      customRange: range,
+      categories: state.categories,
+    );
+  }
+
+  /// Включает или выключает категорию в фильтре.
+  void toggleCategory(String category) {
+    final next = {...state.categories};
+    next.contains(category) ? next.remove(category) : next.add(category);
+    state = AnalyticsSelection(
+      period: state.period,
+      customRange: state.customRange,
+      categories: next,
+    );
+  }
+
+  /// Сбрасывает фильтр по категориям.
+  void clearCategories() {
+    state = AnalyticsSelection(
+      period: state.period,
+      customRange: state.customRange,
+    );
+  }
+}
+
+/// Выбор периода и фильтров аналитики.
+final analyticsSelectionProvider =
+    NotifierProvider<AnalyticsSelectionController, AnalyticsSelection>(
+      AnalyticsSelectionController.new,
+    );
+
+/// Сводка трат за выбранный период аналитики.
+class AnalyticsOverview {
+  const AnalyticsOverview({
+    required this.range,
+    required this.total,
+    required this.previousTotal,
+  });
+
+  /// Диапазон текущего периода.
+  final PeriodRange range;
+
+  /// Сумма трат за выбранный период (с учётом фильтра категорий).
+  final double total;
+
+  /// Сумма трат за предыдущий период (с учётом фильтра категорий).
+  final double previousTotal;
+
+  /// Процент изменения к предыдущему периоду (`null` — нечего сравнивать).
+  int? get percentChange =>
+      AnalyticsMath.percentageChange(current: total, previous: previousTotal);
+}
+
+/// Сводка трат за выбранный период и процент к предыдущему.
+///
+/// Пересчитывается реактивно: на любые правки операций и смену
+/// табов периода или фильтров категорий.
+final analyticsOverviewProvider = FutureProvider<AnalyticsOverview>((ref) async {
+  final selection = ref.watch(analyticsSelectionProvider);
+  ref.watch(recentOperationsProvider);
+  final repository = ref.watch(operationRepositoryProvider);
+  final now = DateTime.now();
+  final range = selection.rangeFor(now);
+  final previous = selection.previousRangeFor(now);
+
+  double sum(Map<String, double> map) {
+    return map.entries
+        .where((entry) =>
+            !selection.filtersCategories ||
+            selection.categories.contains(entry.key))
+        .fold<double>(0, (sum, entry) => sum + entry.value);
+  }
+
+  final currentByCategory = await repository.expensesByCategory(
+    from: range.from,
+    to: range.to,
+  );
+  final previousByCategory = await repository.expensesByCategory(
+    from: previous.from,
+    to: previous.to,
+  );
+  return AnalyticsOverview(
+    range: range,
+    total: sum(currentByCategory),
+    previousTotal: sum(previousByCategory),
+  );
 });
 
 /// Цикл бюджета месяца: базовый бюджет и перенесённый остаток.
