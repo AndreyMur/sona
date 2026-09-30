@@ -21,6 +21,10 @@ class AppSettings {
     this.selectedCategories = const <String>{},
     this.monthlyBudget,
     this.categoryLimits = const <String, double>{},
+    this.alertThresholds = const <int>[50, 80, 100],
+    this.carryOverEnabled = false,
+    this.carryOverAmount,
+    this.lastProcessedMonth,
   });
 
   /// Пройден ли онбординг. Пока `false` — приложение показывает онбординг.
@@ -40,6 +44,18 @@ class AppSettings {
   /// Ключ — имя категории (`Продукты`) либо пара «категория ::
   /// подкатегория» через [subcategoryLimitKey] (`Продукты::Супермаркет`).
   final Map<String, double> categoryLimits;
+
+  /// Пороги (в процентах) предупреждений о расходе бюджета, по возрастанию.
+  final List<int> alertThresholds;
+
+  /// Переносится ли неиспользованный остаток бюджета в новый месяц.
+  final bool carryOverEnabled;
+
+  /// Остаток, перенесённый из прошлого месяца в текущий.
+  final double? carryOverAmount;
+
+  /// Месяц («ГГГГ-ММ»), для которого остаток уже переносился.
+  final String? lastProcessedMonth;
 
   /// Список категорий, которые нужно показывать пользователю.
   ///
@@ -63,6 +79,10 @@ class AppSettings {
     Set<String>? selectedCategories,
     Object? monthlyBudget = _unset,
     Object? categoryLimits = _unset,
+    List<int>? alertThresholds,
+    bool? carryOverEnabled,
+    Object? carryOverAmount = _unset,
+    Object? lastProcessedMonth = _unset,
   }) {
     return AppSettings(
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
@@ -74,6 +94,14 @@ class AppSettings {
       categoryLimits: categoryLimits == _unset
           ? this.categoryLimits
           : categoryLimits as Map<String, double>,
+      alertThresholds: alertThresholds ?? this.alertThresholds,
+      carryOverEnabled: carryOverEnabled ?? this.carryOverEnabled,
+      carryOverAmount: carryOverAmount == _unset
+          ? this.carryOverAmount
+          : carryOverAmount as double?,
+      lastProcessedMonth: lastProcessedMonth == _unset
+          ? this.lastProcessedMonth
+          : lastProcessedMonth as String?,
     );
   }
 
@@ -83,6 +111,10 @@ class AppSettings {
     'selectedCategories': selectedCategories.toList(),
     'monthlyBudget': monthlyBudget,
     'categoryLimits': categoryLimits,
+    'alertThresholds': alertThresholds,
+    'carryOverEnabled': carryOverEnabled,
+    'carryOverAmount': carryOverAmount,
+    'lastProcessedMonth': lastProcessedMonth,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -100,6 +132,13 @@ class AppSettings {
             (key, value) => MapEntry(key, (value as num).toDouble()),
           ) ??
           const <String, double>{},
+      alertThresholds: (json['alertThresholds'] as List<dynamic>?)
+              ?.map((value) => (value as num).toInt())
+              .toList() ??
+          const <int>[50, 80, 100],
+      carryOverEnabled: json['carryOverEnabled'] as bool? ?? false,
+      carryOverAmount: (json['carryOverAmount'] as num?)?.toDouble(),
+      lastProcessedMonth: json['lastProcessedMonth'] as String?,
     );
   }
 
