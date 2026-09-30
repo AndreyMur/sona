@@ -1,11 +1,14 @@
 import 'dart:async';
 
+import 'package:sona/domain/models/app_settings.dart';
 import 'package:sona/domain/models/categorization_rule.dart';
 import 'package:sona/domain/models/operation.dart';
 import 'package:sona/domain/models/recognition.dart';
 import 'package:sona/domain/repositories/categorization_repository.dart';
+import 'package:sona/domain/services/app_settings_store.dart';
 import 'package:sona/domain/services/audio_recorder.dart';
 import 'package:sona/domain/services/connectivity_service.dart';
+import 'package:sona/domain/services/permission_service.dart';
 import 'package:sona/domain/services/recognition_service.dart';
 import 'package:sona/domain/services/recording_file_store.dart';
 
@@ -192,6 +195,58 @@ class FakeConnectivityService implements ConnectivityService {
   }
 
   void dispose() => _controller.close();
+}
+
+/// Поддельное хранилище настроек: без защищённого хранилища.
+class FakeAppSettingsStore implements AppSettingsStore {
+  FakeAppSettingsStore([AppSettings? initial]) :
+        _settings = initial ?? const AppSettings();
+
+  AppSettings _settings;
+
+  AppSettings get settings => _settings;
+  int saves = 0;
+
+  @override
+  Future<AppSettings> load() async => _settings;
+
+  @override
+  Future<void> save(AppSettings settings) async {
+    _settings = settings;
+    saves++;
+  }
+}
+
+/// Поддельные разрешения: без системных диалогов.
+class FakePermissionService implements PermissionService {
+  FakePermissionService({this.initialStatus = SonaPermissionStatus.denied});
+
+  SonaPermissionStatus initialStatus;
+  bool grantOnRequest = true;
+  int microphoneRequests = 0;
+  int notificationRequests = 0;
+
+  @override
+  Future<SonaPermissionStatus> microphoneStatus() async => initialStatus;
+
+  @override
+  Future<SonaPermissionStatus> requestMicrophone() async {
+    microphoneRequests++;
+    return grantOnRequest
+        ? SonaPermissionStatus.granted
+        : SonaPermissionStatus.denied;
+  }
+
+  @override
+  Future<SonaPermissionStatus> notificationStatus() async => initialStatus;
+
+  @override
+  Future<SonaPermissionStatus> requestNotifications() async {
+    notificationRequests++;
+    return grantOnRequest
+        ? SonaPermissionStatus.granted
+        : SonaPermissionStatus.denied;
+  }
 }
 
 /// Готовый результат разбора с двумя тратами.
