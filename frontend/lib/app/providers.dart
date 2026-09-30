@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../core/config/app_config.dart';
+import '../core/utils/budget_math.dart';
 import '../data/local/app_database.dart';
 import '../data/remote/interceptors.dart';
 import '../data/remote/odirouter_client.dart';
@@ -13,6 +14,7 @@ import '../data/repositories/operation_repository_impl.dart';
 import '../data/services/audio_recorder_service.dart';
 import '../data/services/connectivity_service_impl.dart';
 import '../data/services/device_identity_store.dart';
+import '../data/services/local_notification_service.dart';
 import '../data/services/local_text_parser.dart';
 import '../data/services/permission_service_impl.dart';
 import '../data/services/recording_file_store.dart';
@@ -30,6 +32,7 @@ import '../domain/services/connectivity_service.dart';
 import '../domain/services/learning_text_parser.dart';
 import '../domain/services/permission_service.dart';
 import '../domain/services/recognition_service.dart';
+import '../domain/services/notification_service.dart';
 import '../domain/services/recording_file_store.dart';
 
 /// Защищённое хранилище секретов приложения.
@@ -193,6 +196,58 @@ class AppSettingsController extends AsyncNotifier<AppSettings> {
     await _update(current.copyWith(monthlyBudget: budget));
   }
 
+  /// Задаёт или снимает лимит по ключу: имя категории либо пара
+  /// «категория :: подкатегория» (см. [subcategoryLimitKey]).
+  Future<void> setCategoryLimit(String key, double? limit) async {
+    final current = state.value ?? const AppSettings();
+    final limits = {...current.categoryLimits};
+    if (limit == null) {
+      limits.remove(key);
+    } else {
+      limits[key] = limit;
+    }
+    await _update(current.copyWith(categoryLimits: limits));
+  }
+
+  /// Задаёт пороги предупреждений (нормализует значения).
+  Future<void> setAlertThresholds(List<int> thresholds) async {
+    final current = state.value ?? const AppSettings();
+    await _update(
+      current.copyWith(
+        alertThresholds: BudgetMath.normalizeThresholds(thresholds),
+      ),
+    );
+  }
+
+  /// Включает или выключает перенос остатка бюджета.
+  Future<void> setCarryOverEnabled(bool enabled) async {
+    final current = state.value ?? const AppSettings();
+    await _update(current.copyWith(carryOverEnabled: enabled));
+  }
+
+  /// Отмечает месяц обработанным и фиксирует перенесённый остаток.
+  Future<void> markMonthProcessed({
+    required String monthKey,
+    required double carryOverAmount,
+  }) async {
+    final current = state.value ?? const AppSettings();
+    await _update(
+      current.copyWith(
+        lastProcessedMonth: monthKey,
+        carryOverAmount: carryOverAmount,
+      ),
+    );
+  }
+
+  /// Добавляет маркеры отправленных событий уведомлений (идемпотентность).
+  Future<void> addAlertMarkers(Set<String> markers) async {
+    if (markers.isEmpty) return;
+    final current = state.value ?? const AppSettings();
+    await _update(current.copyWith(
+      alertMarkers: {...current.alertMarkers, ...markers},
+    ));
+  }
+
   Future<void> _update(AppSettings settings) async {
     state = AsyncData(settings);
     await ref.read(appSettingsStoreProvider).save(settings);
@@ -210,12 +265,32 @@ final monthlyBudgetProvider = Provider<double?>((ref) {
   return ref.watch(appSettingsProvider).value?.monthlyBudget;
 });
 
+/// Лимиты расходов по категориям и подкатегориям.
+final categoryLimitsProvider = Provider<Map<String, double>>((ref) {
+  return ref.watch(appSettingsProvider).value?.categoryLimits ?? const {};
+});
+
+/// Пороги предупреждений о расходе бюджета (проценты, по возрастанию).
+final alertThresholdsProvider = Provider<List<int>>((ref) {
+  return ref.watch(appSettingsProvider).value?.alertThresholds ??
+      const [50, 80, 100];
+});
+
 /// Текущий диапазон календарного месяца `[начало, следующий месяц)`.
 (DateTime, DateTime) currentMonthRange([DateTime? now]) {
   final value = now ?? DateTime.now();
   return (
     DateTime(value.year, value.month),
     DateTime(value.year, value.month + 1),
+  );
+}
+
+/// Диапазон предыдущего календарного месяца `[начало, конец)`.
+(DateTime, DateTime) previousMonthRange([DateTime? now]) {
+  final value = now ?? DateTime.now();
+  return (
+    DateTime(value.year, value.month - 1),
+    DateTime(value.year, value.month),
   );
 }
 
@@ -237,6 +312,26 @@ final monthlyIncomeProvider = FutureProvider<double>((ref) {
       .totalByType(OperationType.income, from: from, to: to);
 });
 
+/// Расходы за текущий месяц по категориям (только расходы).
+final monthlyExpensesByCategoryProvider =
+    FutureProvider<Map<String, double>>((ref) {
+  ref.watch(recentOperationsProvider);
+  final (from, to) = currentMonthRange();
+  return ref
+      .watch(operationRepositoryProvider)
+      .expensesByCategory(from: from, to: to);
+});
+
+/// Расходы за текущий месяц по парам «категория :: подкатегория».
+final monthlyExpensesBySubcategoryProvider =
+    FutureProvider<Map<String, double>>((ref) {
+  ref.watch(recentOperationsProvider);
+  final (from, to) = currentMonthRange();
+  return ref
+      .watch(operationRepositoryProvider)
+      .expensesBySubcategory(from: from, to: to);
+});
+
 /// Баланс: все доходы минус все расходы.
 final balanceProvider = FutureProvider<double>((ref) async {
   ref.watch(recentOperationsProvider);
@@ -246,7 +341,106 @@ final balanceProvider = FutureProvider<double>((ref) async {
   return income - expense;
 });
 
+/// Цикл бюджета месяца: базовый бюджет и перенесённый остаток.
+class BudgetCycle {
+  const BudgetCycle({
+    required this.monthlyBudget,
+    required this.carryOver,
+    required this.carryOverEnabled,
+  });
+
+  static final BudgetCycle none = BudgetCycle(
+    monthlyBudget: 0,
+    carryOver: 0,
+    carryOverEnabled: false,
+  );
+
+  /// Базовый месячный бюджет пользователя.
+  final double monthlyBudget;
+
+  /// Остаток, перенесённый из прошлого месяца.
+  final double carryOver;
+
+  /// Применяется ли перенос остатка.
+  final bool carryOverEnabled;
+
+  /// Эффективный бюджет месяца с учётом переноса.
+  double get total => BudgetMath.effectiveBudget(
+    monthlyBudget,
+    carryOverEnabled: carryOverEnabled,
+    carryOverAmount: carryOver,
+  );
+}
+
+/// Управляет циклом бюджета: перенос остатка в наступивший месяц.
+class BudgetCycleController extends AsyncNotifier<BudgetCycle> {
+  @override
+  Future<BudgetCycle> build() async {
+    final settings = ref.watch(appSettingsProvider);
+    ref.watch(recentOperationsProvider);
+    final repository = ref.watch(operationRepositoryProvider);
+
+    final value = settings.value;
+    final budget = value?.monthlyBudget;
+    if (value == null || budget == null) {
+      return BudgetCycle.none;
+    }
+    return _resolveCarryOver(value, repository);
+  }
+
+  Future<BudgetCycle> _resolveCarryOver(
+    AppSettings settings,
+    OperationRepository repository,
+  ) async {
+    final budget = settings.monthlyBudget!;
+    final key = BudgetMath.monthKey(DateTime.now());
+
+    // Уже посчитано: используем зафиксированный остаток.
+    if (settings.lastProcessedMonth == key) {
+      return BudgetCycle(
+        monthlyBudget: budget,
+        carryOver: settings.carryOverAmount ?? 0,
+        carryOverEnabled: settings.carryOverEnabled,
+      );
+    }
+
+    // Новый месяц (или первый запуск переноса): считаем остаток прошлого.
+    final (from, to) = previousMonthRange();
+    final spent = await repository.totalByType(
+      OperationType.expense,
+      from: from,
+      to: to,
+    );
+    final remainder =
+        BudgetMath.carryOverRemainder(
+          monthlyBudget: budget,
+          spent: spent,
+          enabled: settings.carryOverEnabled,
+        ) ??
+        0;
+    await ref
+        .read(appSettingsProvider.notifier)
+        .markMonthProcessed(monthKey: key, carryOverAmount: remainder);
+    return BudgetCycle(
+      monthlyBudget: budget,
+      carryOver: remainder,
+      carryOverEnabled: settings.carryOverEnabled,
+    );
+  }
+}
+
+/// Эффективный бюджет месяца с учётом переноса остатка.
+final budgetCycleProvider =
+    AsyncNotifierProvider<BudgetCycleController, BudgetCycle>(
+      BudgetCycleController.new,
+    );
+
 /// Разрешения на микрофон и уведомления.
 final permissionServiceProvider = Provider<PermissionService>(
   (ref) => const PermissionHandlerService(),
+);
+
+/// Порт доставки локальных уведомлений.
+final notificationsPortProvider = Provider<SonaNotifications>(
+  (ref) => LocalNotificationsService(),
 );

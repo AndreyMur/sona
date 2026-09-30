@@ -3,11 +3,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'app/app.dart';
+import 'app/budget_alert_coordinator.dart';
 import 'app/providers.dart';
 import 'data/local/app_database.dart';
 import 'data/local/connection.dart';
 import 'data/repositories/category_repository_impl.dart';
 import 'data/services/database_key_provider.dart';
+
+/// Наблюдатели бюджетных уведомлений: оценка при старте и на изменениях.
+void observeBudgetAlerts(ProviderContainer container) {
+  void kick() =>
+      container.read(budgetAlertCoordinatorProvider.notifier).evaluate();
+  kick();
+  container.listen(appSettingsProvider, (_, _) => kick());
+  container.listen(monthlyExpenseProvider, (_, _) => kick());
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,9 +29,14 @@ Future<void> main() async {
   );
   await DriftCategoryRepository(database).seedIfEmpty();
 
+  final container = ProviderContainer(
+    overrides: [appDatabaseProvider.overrideWithValue(database)],
+  );
+  observeBudgetAlerts(container);
+
   runApp(
-    ProviderScope(
-      overrides: [appDatabaseProvider.overrideWithValue(database)],
+    UncontrolledProviderScope(
+      container: container,
       child: const SonaApp(),
     ),
   );

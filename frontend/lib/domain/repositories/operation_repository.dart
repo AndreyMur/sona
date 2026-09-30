@@ -35,6 +35,20 @@ abstract interface class OperationRepository {
     DateTime? from,
     DateTime? to,
   });
+
+  /// Расходы за период `[from, to)`, сгруппированные по категории.
+  Future<Map<String, double>> expensesByCategory({
+    DateTime? from,
+    DateTime? to,
+  });
+
+  /// Расходы за период `[from, to)`, сгруппированные по парам
+  /// «категория :: подкатегория» (см. [subcategoryLimitKey]). Операции
+  /// без подкатегории пропускаются.
+  Future<Map<String, double>> expensesBySubcategory({
+    DateTime? from,
+    DateTime? to,
+  });
 }
 
 /// Хранилище категорий и подкатегорий.

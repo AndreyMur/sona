@@ -49,6 +49,8 @@ dependencies:
   intl: ^0.20.3
   permission_handler: ^13.0.2
   connectivity_plus: ^7.3.1
+  flutter_local_notifications: ^19.4.2
+  timezone: ^0.10.1
 
 # SQLCipher: шифрование локальной БД через сборку sqlite3 с поддержкой шифрования.
 hooks:

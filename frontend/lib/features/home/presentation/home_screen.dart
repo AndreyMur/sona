@@ -6,6 +6,7 @@ import '../../../app/providers.dart';
 import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/budget_math.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
 import '../../../domain/models/operation.dart';
@@ -47,7 +48,7 @@ class HomeScreen extends ConsumerWidget {
     final balance = ref.watch(balanceProvider);
     final monthIncome = ref.watch(monthlyIncomeProvider);
     final monthExpense = ref.watch(monthlyExpenseProvider);
-    final budget = ref.watch(monthlyBudgetProvider);
+    final cycle = ref.watch(budgetCycleProvider).asData?.value;
     final currency = ref.watch(currencyProvider);
 
     return GradientScaffold(
@@ -97,12 +98,20 @@ class HomeScreen extends ConsumerWidget {
                       onTap: () => context.push(AppRoutes.categories),
                     ),
                   ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: _QuickActionCard(
+                      icon: Icons.savings_rounded,
+                      label: 'Бюджет',
+                      onTap: () => context.push(AppRoutes.budget),
+                    ),
+                  ),
                 ],
               ),
-              if (budget != null) ...[
+              if (cycle != null && cycle.monthlyBudget > 0) ...[
                 const SizedBox(height: AppSpacing.md),
                 _BudgetProgressCard(
-                  budget: budget,
+                  budget: cycle.total,
                   spent: monthExpense.asData?.value,
                   currencySymbol: currency.symbol,
                 ),
@@ -284,8 +293,8 @@ class _QuickActionCard extends StatelessWidget {
   }
 }
 
-/// Мини-прогресс бюджета месяца.
-class _BudgetProgressCard extends StatelessWidget {
+/// Мини-прогресс бюджета месяца. Тап открывает экран бюджета.
+class _BudgetProgressCard extends ConsumerWidget {
   const _BudgetProgressCard({
     required this.budget,
     required this.spent,
@@ -297,67 +306,78 @@ class _BudgetProgressCard extends StatelessWidget {
   final String currencySymbol;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final sona = context.sonaColors;
+    final thresholds = ref.watch(alertThresholdsProvider);
     final value = spent ?? 0;
-    final percent = budget > 0 ? (value / budget).clamp(0.0, 1.0) : 0.0;
-    final percentLabel = budget > 0 ? (value / budget * 100).round() : 0;
-    final progressColor = percent >= 1
-        ? theme.colorScheme.error
-        : percent >= 0.8
-            ? sona.warning
-            : sona.income;
-    final percentColor = percent >= 1
-        ? theme.colorScheme.error
-        : percent >= 0.8
-            ? sona.warning
-            : theme.colorScheme.onSurface;
+    final percent = BudgetMath.budgetProgress(value, budget);
+    final percentLabel = BudgetMath.budgetRatioPercent(value, budget).round();
+    final tone = BudgetMath.budgetTone(value, budget, thresholds);
+    final accentColor = switch (tone) {
+      BudgetTone.danger => theme.colorScheme.error,
+      BudgetTone.warn => sona.warning,
+      BudgetTone.ok => sona.income,
+    };
+    final percentColor = tone == BudgetTone.ok
+        ? theme.colorScheme.onSurface
+        : accentColor;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text('Бюджет месяца', style: theme.textTheme.titleMedium),
+      child: InkWell(
+        onTap: () => context.push(AppRoutes.budget),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child:
+                        Text('Бюджет месяца', style: theme.textTheme.titleMedium),
+                  ),
+                  Text(
+                    '$percentLabel%',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: percentColor,
+                    ),
+                  ),
+                  const SizedBox(width: AppSpacing.xxs),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              LinearProgressIndicator(
+                value: percent,
+                minHeight: 8,
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+                color: accentColor,
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                '${SonaFormat.amount(value, currency: currencySymbol)} из '
+                '${SonaFormat.amount(budget, currency: currencySymbol)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
+              ),
+              if (value >= budget) ...[
+                const SizedBox(height: AppSpacing.xxs),
                 Text(
-                  '$percentLabel%',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: percentColor,
+                  'Бюджет превышен',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.error,
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            LinearProgressIndicator(
-              value: percent,
-              minHeight: 8,
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-              color: progressColor,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              '${SonaFormat.amount(value, currency: currencySymbol)} из '
-              '${SonaFormat.amount(budget, currency: currencySymbol)}',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-            if (percent >= 1) ...[
-              const SizedBox(height: AppSpacing.xxs),
-              Text(
-                'Бюджет превышен',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.error,
-                ),
-              ),
             ],
-          ],
+          ),
         ),
       ),
     );
