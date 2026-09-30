@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import '../../domain/models/app_settings.dart';
 import '../../domain/models/categorization_rule.dart';
 import '../../domain/models/category.dart';
 import '../../domain/models/operation.dart';
@@ -177,6 +178,71 @@ class AppDatabase extends _$AppDatabase {
     final query = selectOnly(operations)..addColumns([count]);
     final row = await query.getSingle();
     return row.read(count) ?? 0;
+  }
+
+  Expression<bool> _expenseWindowFilter({
+    DateTime? from,
+    DateTime? to,
+  }) {
+    Expression<bool> filter =
+        operations.type.equals(OperationType.expense.wireValue);
+    if (from != null) {
+      filter = filter & operations.date.isBiggerOrEqualValue(from);
+    }
+    if (to != null) {
+      filter = filter & operations.date.isSmallerThanValue(to);
+    }
+    return filter;
+  }
+
+  /// Расходы за окно `[from, to)`, сгруппированные по категории.
+  Future<Map<String, double>> expenseTotalsByCategory({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final total = operations.amount.sum();
+    final query = selectOnly(operations)
+      ..addColumns([operations.category, total])
+      ..where(_expenseWindowFilter(from: from, to: to))
+      ..groupBy([operations.category]);
+    final rows = await query.get();
+    final result = <String, double>{};
+    for (final row in rows) {
+      final category = row.read(operations.category);
+      final sum = row.read(total);
+      if (category != null && sum != null) result[category] = sum;
+    }
+    return result;
+  }
+
+  /// Расходы за окно `[from, to)`, сгруппированные по парам
+  /// «категория :: подкатегория». Строки без подкатегории пропускаются.
+  Future<Map<String, double>> expenseTotalsByCategorySubcategory({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final total = operations.amount.sum();
+    final query = selectOnly(operations)
+      ..addColumns([operations.category, operations.subcategory, total])
+      ..where(
+        _expenseWindowFilter(from: from, to: to) &
+            operations.subcategory.isNotNull(),
+      )
+      ..groupBy([operations.category, operations.subcategory]);
+    final rows = await query.get();
+    final result = <String, double>{};
+    for (final row in rows) {
+      final category = row.read(operations.category);
+      final subcategory = row.read(operations.subcategory);
+      final sum = row.read(total);
+      if (category != null &&
+          subcategory != null &&
+          subcategory.isNotEmpty &&
+          sum != null) {
+        result[subcategoryLimitKey(category, subcategory)] = sum;
+      }
+    }
+    return result;
   }
 
   Future<List<Category>> categoriesWithSubcategories() async {

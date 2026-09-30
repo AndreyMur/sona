@@ -193,6 +193,19 @@ class AppSettingsController extends AsyncNotifier<AppSettings> {
     await _update(current.copyWith(monthlyBudget: budget));
   }
 
+  /// Задаёт или снимает лимит по ключу: имя категории либо пара
+  /// «категория :: подкатегория» (см. [subcategoryLimitKey]).
+  Future<void> setCategoryLimit(String key, double? limit) async {
+    final current = state.value ?? const AppSettings();
+    final limits = {...current.categoryLimits};
+    if (limit == null) {
+      limits.remove(key);
+    } else {
+      limits[key] = limit;
+    }
+    await _update(current.copyWith(categoryLimits: limits));
+  }
+
   Future<void> _update(AppSettings settings) async {
     state = AsyncData(settings);
     await ref.read(appSettingsStoreProvider).save(settings);
@@ -208,6 +221,11 @@ final currencyProvider = Provider<AppCurrency>((ref) {
 /// Месячный бюджет пользователя (или `null`).
 final monthlyBudgetProvider = Provider<double?>((ref) {
   return ref.watch(appSettingsProvider).value?.monthlyBudget;
+});
+
+/// Лимиты расходов по категориям и подкатегориям.
+final categoryLimitsProvider = Provider<Map<String, double>>((ref) {
+  return ref.watch(appSettingsProvider).value?.categoryLimits ?? const {};
 });
 
 /// Текущий диапазон календарного месяца `[начало, следующий месяц)`.
@@ -235,6 +253,26 @@ final monthlyIncomeProvider = FutureProvider<double>((ref) {
   return ref
       .watch(operationRepositoryProvider)
       .totalByType(OperationType.income, from: from, to: to);
+});
+
+/// Расходы за текущий месяц по категориям (только расходы).
+final monthlyExpensesByCategoryProvider =
+    FutureProvider<Map<String, double>>((ref) {
+  ref.watch(recentOperationsProvider);
+  final (from, to) = currentMonthRange();
+  return ref
+      .watch(operationRepositoryProvider)
+      .expensesByCategory(from: from, to: to);
+});
+
+/// Расходы за текущий месяц по парам «категория :: подкатегория».
+final monthlyExpensesBySubcategoryProvider =
+    FutureProvider<Map<String, double>>((ref) {
+  ref.watch(recentOperationsProvider);
+  final (from, to) = currentMonthRange();
+  return ref
+      .watch(operationRepositoryProvider)
+      .expensesBySubcategory(from: from, to: to);
 });
 
 /// Баланс: все доходы минус все расходы.

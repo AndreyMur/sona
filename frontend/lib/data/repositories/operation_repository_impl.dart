@@ -48,4 +48,16 @@ class DriftOperationRepository implements OperationRepository {
     DateTime? from,
     DateTime? to,
   }) => _db.sumAmounts(category: category, from: from, to: to);
+
+  @override
+  Future<Map<String, double>> expensesByCategory({
+    DateTime? from,
+    DateTime? to,
+  }) => _db.expenseTotalsByCategory(from: from, to: to);
+
+  @override
+  Future<Map<String, double>> expensesBySubcategory({
+    DateTime? from,
+    DateTime? to,
+  }) => _db.expenseTotalsByCategorySubcategory(from: from, to: to);
 }
