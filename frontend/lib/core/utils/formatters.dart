@@ -72,6 +72,24 @@ abstract final class SonaFormat {
     };
   }
 
+  /// Компактная сумма для подписей графика: «1,5 тыс ₽», «2 млн ₽».
+  static String compact(double value, {String currency = '₽'}) {
+    final abs = value.abs();
+    final sign = value < 0 ? '−' : '';
+    String scaled(double amount, String suffix) {
+      final fixed = (amount >= 10
+              ? amount.toStringAsFixed(0)
+              : amount.toStringAsFixed(1))
+          .replaceFirst('.', ',');
+      final clean = fixed.endsWith(',0') ? fixed.substring(0, fixed.length - 2) : fixed;
+      return '$sign$clean $suffix $currency';
+    }
+
+    if (abs >= 1000000) return scaled(abs / 1000000, 'млн');
+    if (abs >= 1000) return scaled(abs / 1000, 'тыс');
+    return '$sign${abs.round()} $currency';
+  }
+
   /// «00:07».
   static String timer(Duration duration) {
     final minutes = duration.inMinutes.toString().padLeft(2, '0');

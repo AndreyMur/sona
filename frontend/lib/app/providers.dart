@@ -434,6 +434,9 @@ class AnalyticsOverview {
     required this.range,
     required this.total,
     required this.previousTotal,
+    required this.categories,
+    required this.topCategories,
+    required this.months,
   });
 
   /// Диапазон текущего периода.
@@ -445,10 +448,28 @@ class AnalyticsOverview {
   /// Сумма трат за предыдущий период (с учётом фильтра категорий).
   final double previousTotal;
 
+  /// Расходы по всем категориям периода (без учёта фильтра) —
+  /// источник опций фильтра по категориям.
+  final Map<String, double> categories;
+
+  /// Топ категорий выбранного периода по убыванию трат
+  /// (с учётом фильтра категорий, максимум пять позиций).
+  final List<CategoryShare> topCategories;
+
+  /// Траты по последним шести календарным месяцам (включая текущий)
+  /// с учётом фильтра категорий — для бар-чарта.
+  final List<MonthlyBucket> months;
+
   /// Процент изменения к предыдущему периоду (`null` — нечего сравнивать).
   int? get percentChange =>
       AnalyticsMath.percentageChange(current: total, previous: previousTotal);
 }
+
+/// Количество месяцев в бар-чарте динамики трат.
+const int kAnalyticsMonthsVisible = 6;
+
+/// Верхняя граница блока топ категорий.
+const int kAnalyticsTopCategories = 5;
 
 /// Сводка трат за выбранный период и процент к предыдущему.
 ///
@@ -478,10 +499,38 @@ final analyticsOverviewProvider = FutureProvider<AnalyticsOverview>((ref) async 
     from: previous.from,
     to: previous.to,
   );
+  final monthGroups = await repository.expensesByMonthCategory(
+    from: DateTime(now.year, now.month - kAnalyticsMonthsVisible + 1),
+    to: DateTime(now.year, now.month + 1),
+  );
+
+  final months = <MonthlyBucket>[];
+  for (var i = kAnalyticsMonthsVisible - 1; i >= 0; i--) {
+    final monthStart = DateTime(now.year, now.month - i);
+    final key = '${monthStart.year}-'
+        '${monthStart.month.toString().padLeft(2, '0')}';
+    final group = monthGroups[key] ?? const <String, double>{};
+    months.add(MonthlyBucket(month: monthStart, amount: sum(group)));
+  }
+
+  final rankedEntries = currentByCategory.entries
+      .where((entry) =>
+          !selection.filtersCategories ||
+          selection.categories.contains(entry.key))
+      .where((entry) => entry.value > 0)
+      .toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+
   return AnalyticsOverview(
     range: range,
     total: sum(currentByCategory),
     previousTotal: sum(previousByCategory),
+    categories: currentByCategory,
+    topCategories: [
+      for (final entry in rankedEntries.take(kAnalyticsTopCategories))
+        CategoryShare(category: entry.key, amount: entry.value),
+    ],
+    months: months,
   );
 });
 

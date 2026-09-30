@@ -245,6 +245,34 @@ class AppDatabase extends _$AppDatabase {
     return result;
   }
 
+  /// Расходы за окно `[from, to)`, сгруппированные по месяцам
+  /// (ключ «YYYY-MM») и внутри месяца — по категории. Пригодно для
+  /// бар-чарта динамики по месяцам с фильтром по категориям.
+  Future<Map<String, Map<String, double>>> expenseTotalsByMonthCategory({
+    DateTime? from,
+    DateTime? to,
+  }) async {
+    final total = operations.amount.sum();
+    final year = operations.date.year;
+    final month = operations.date.month;
+    final query = selectOnly(operations)
+      ..addColumns([year, month, operations.category, total])
+      ..where(_expenseWindowFilter(from: from, to: to))
+      ..groupBy([year, month, operations.category]);
+    final rows = await query.get();
+    final result = <String, Map<String, double>>{};
+    for (final row in rows) {
+      final y = row.read(year);
+      final m = row.read(month);
+      final category = row.read(operations.category);
+      final sum = row.read(total);
+      if (y == null || m == null || category == null || sum == null) continue;
+      final key = '$y-${m.toString().padLeft(2, '0')}';
+      (result[key] ??= {})[category] = sum;
+    }
+    return result;
+  }
+
   Future<List<Category>> categoriesWithSubcategories() async {
     final categoryRows = await (select(
       categories,

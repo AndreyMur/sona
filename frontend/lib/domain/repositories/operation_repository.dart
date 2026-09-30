@@ -49,6 +49,13 @@ abstract interface class OperationRepository {
     DateTime? from,
     DateTime? to,
   });
+
+  /// Расходы за период `[from, to)`, сгруппированные по месяцам
+  /// (ключ «YYYY-MM»), внутри месяца — по категории.
+  Future<Map<String, Map<String, double>>> expensesByMonthCategory({
+    DateTime? from,
+    DateTime? to,
+  });
 }
 
 /// Хранилище категорий и подкатегорий.

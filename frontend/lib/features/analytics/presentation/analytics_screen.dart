@@ -7,6 +7,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/analytics_math.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
+import '../../budget/presentation/widgets/donut_chart.dart';
+import 'widgets/monthly_bar_chart.dart';
 
 /// Экран аналитики: табы периодов (Неделя / Месяц / Год / Период),
 /// сумма трат с процентом к прошлому периоду, бар-чарт по месяцам,
@@ -39,6 +41,10 @@ class AnalyticsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             _SpendSummaryCard(selection: selection, overview: overview),
+            const SizedBox(height: AppSpacing.md),
+            _MonthlyTrendCard(overview: overview),
+            const SizedBox(height: AppSpacing.md),
+            _TopCategoriesCard(overview: overview),
           ],
         ),
       ),
@@ -179,6 +185,151 @@ class _SpendSummaryCard extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Карточка бар-чарта динамики трат по месяцам.
+class _MonthlyTrendCard extends ConsumerWidget {
+  const _MonthlyTrendCard({required this.overview});
+
+  final AsyncValue<AnalyticsOverview> overview;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final currency = ref.watch(currencyProvider).symbol;
+    final now = DateTime.now();
+    final data = overview.asData?.value;
+    final months = data?.months ?? [];
+
+    final bars = [
+      for (final bucket in months)
+        BarMonth(
+          label: SonaFormat.monthShort(bucket.month.month),
+          value: bucket.amount,
+          currency: currency,
+          current:
+              bucket.month.year == now.year && bucket.month.month == now.month,
+        ),
+    ];
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('По месяцам', style: theme.textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.md),
+            MonthlyBarChart(months: bars),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Карточка топ категорий выбранного периода.
+class _TopCategoriesCard extends ConsumerWidget {
+  const _TopCategoriesCard({required this.overview});
+
+  final AsyncValue<AnalyticsOverview> overview;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final currency = ref.watch(currencyProvider).symbol;
+    final data = overview.asData?.value;
+    final shares = data?.topCategories ?? const <CategoryShare>[];
+    final total = data?.total ?? 0;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Топ категорий', style: theme.textTheme.titleMedium),
+            const SizedBox(height: AppSpacing.md),
+            if (shares.isEmpty)
+              Text(
+                'Нет расходов за период',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              )
+            else
+              for (var i = 0; i < shares.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: _CategoryShareRow(
+                    share: shares[i],
+                    total: total,
+                    currency: currency,
+                    color: kDonutPalette[i % kDonutPalette.length],
+                  ),
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Строка топа категорий: метка цвета, название, сумма, доля и прогресс.
+class _CategoryShareRow extends StatelessWidget {
+  const _CategoryShareRow({
+    required this.share,
+    required this.total,
+    required this.currency,
+    required this.color,
+  });
+
+  final CategoryShare share;
+  final double total;
+  final String currency;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sona = context.sonaColors;
+    final fraction = total > 0 ? (share.amount / total).clamp(0.0, 1.0) : 0.0;
+    final percent = (fraction * 100).round();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            LegendDot(color: color),
+            const SizedBox(width: AppSpacing.xs),
+            Expanded(
+              child: Text(
+                share.category,
+                style: theme.textTheme.bodyMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Text(
+              '${SonaFormat.amount(share.amount, currency: currency)}'
+              '${total > 0 ? ' · $percent%' : ''}',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.xxs),
+        LinearProgressIndicator(
+          value: fraction,
+          minHeight: 5,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+          color: color,
+          backgroundColor: sona.accentSoft.withValues(alpha: 0.4),
+        ),
+      ],
     );
   }
 }

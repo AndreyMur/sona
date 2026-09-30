@@ -55,6 +55,23 @@ class PeriodRange {
   String toString() => '[$from, $to)';
 }
 
+/// Доля категории в расходах выбранного периода (для топа категорий).
+class CategoryShare {
+  const CategoryShare({required this.category, required this.amount});
+
+  final String category;
+  final double amount;
+}
+
+/// Сумма трат за один календарный месяц (для бар-чарта).
+class MonthlyBucket {
+  const MonthlyBucket({required this.month, required this.amount});
+
+  /// Первый день месяца.
+  final DateTime month;
+  final double amount;
+}
+
 /// Функции агрегации и сравнения периодов.
 abstract final class AnalyticsMath {
   const AnalyticsMath._();
