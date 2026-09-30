@@ -526,9 +526,7 @@ class _LimitCardState extends ConsumerState<_LimitCard> {
     final theme = Theme.of(context);
     final sona = context.sonaColors;
     final limits = ref.watch(categoryLimitsProvider);
-    final limit = widget.cycle.monthlyBudget <= 0
-        ? null
-        : limits[widget.category.name];
+    final limit = limits[widget.category.name];
 
     return Card(
       child: Column(
@@ -730,7 +728,7 @@ class _LimitInputDialogState extends State<_LimitInputDialog> {
         ),
         if (widget.initial != null)
           TextButton(
-            onPressed: () => Navigator.of(context).pop(0),
+            onPressed: () => Navigator.of(context).pop(0.0),
             child: const Text('Снять лимит'),
           ),
         FilledButton(

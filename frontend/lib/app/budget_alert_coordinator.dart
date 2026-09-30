@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -32,8 +30,7 @@ class BudgetAlertCoordinator extends Notifier<void> {
     _running = true;
     try {
       final stamp = now ?? DateTime.now();
-      final settings =
-          ref.read(appSettingsProvider).value ?? const AppSettings();
+      final settings = await ref.read(appSettingsProvider.future);
       final port = ref.read(notificationsPortProvider);
       final currency = ref.read(currencyProvider).symbol;
 
@@ -43,9 +40,9 @@ class BudgetAlertCoordinator extends Notifier<void> {
       await _weeklyReport(port, settings, newMarkers, stamp, currency);
       if (settings.monthlyBudget != null && settings.monthlyBudget! > 0) {
         await _budgetAlerts(port, settings, newMarkers, stamp, currency);
-        await _categoryAlerts(port, settings, newMarkers, stamp, currency);
-        await _anomalyAlert(port, settings, newMarkers, stamp, currency);
       }
+      await _categoryAlerts(port, settings, newMarkers, stamp, currency);
+      await _anomalyAlert(port, settings, newMarkers, stamp, currency);
 
       if (newMarkers.isNotEmpty) {
         await ref.read(appSettingsProvider.notifier).addAlertMarkers(newMarkers);
@@ -217,7 +214,8 @@ class BudgetAlertCoordinator extends Notifier<void> {
     }
   }
 
-  /// Аномалия трат: сегодняшний день вдвое дороже среднего за месяц.
+  /// Аномалия трат: сегодняшний день вдвое дороже среднего за прошлые дни
+  /// месяца (траты сегодня в базу не входят).
   Future<void> _anomalyAlert(
     SonaNotifications port,
     AppSettings settings,
@@ -232,20 +230,21 @@ class BudgetAlertCoordinator extends Notifier<void> {
     }
     final repository = ref.read(operationRepositoryProvider);
     final (from, to) = currentMonthRange(stamp);
-    final monthSpent = await repository.totalByType(
+    final todayStart = DateTime(stamp.year, stamp.month, stamp.day);
+
+    // Среднее по дням месяца до сегодняшнего.
+    final priorSpent = await repository.totalByType(
       OperationType.expense,
       from: from,
-      to: to,
+      to: todayStart,
     );
-    if (monthSpent <= 0) return;
-    final dailyAverage = monthSpent / max(stamp.day - 1, 1);
-    if (dailyAverage <= 0) return;
+    final dailyAverage = priorSpent / (stamp.day - 1);
+    if (dailyAverage <= 0) return; // нет базы — нет аномалий
 
-    final todayStart = DateTime(stamp.year, stamp.month, stamp.day);
     final todaySpent = await repository.totalByType(
       OperationType.expense,
       from: todayStart,
-      to: DateTime(todayStart.year, todayStart.month, todayStart.day + 1),
+      to: to,
     );
     if (todaySpent < dailyAverage * 2) return;
 

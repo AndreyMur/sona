@@ -201,19 +201,17 @@ class FakeConnectivityService implements ConnectivityService {
 /// Поддельное хранилище настроек: без защищённого хранилища.
 class FakeAppSettingsStore implements AppSettingsStore {
   FakeAppSettingsStore([AppSettings? initial]) :
-        _settings = initial ?? const AppSettings();
+        settings = initial ?? const AppSettings();
 
-  AppSettings _settings;
-
-  AppSettings get settings => _settings;
+  AppSettings settings;
   int saves = 0;
 
   @override
-  Future<AppSettings> load() async => _settings;
+  Future<AppSettings> load() async => settings;
 
   @override
-  Future<void> save(AppSettings settings) async {
-    _settings = settings;
+  Future<void> save(AppSettings value) async {
+    settings = value;
     saves++;
   }
 }
