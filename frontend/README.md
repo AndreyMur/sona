@@ -1,17 +1,41 @@
-# sona
+# Sona (frontend)
 
-A new Flutter project.
+Кроссплатформенное приложение Sona: голосовой учёт личных финансов.
 
-## Getting Started
+## Запуск
 
-This project is a starting point for a Flutter application.
+```sh
+flutter pub get
+flutter gen-l10n
+flutter run
+```
 
-A few resources to get you started if this is your first Flutter project:
+## Локализация
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+Строки интерфейса живут в `lib/l10n/app_ru.arb` (основной) и
+`lib/l10n/app_en.arb`. Генерация кода — `flutter gen-l10n`
+(настройки в `l10n.yaml`), результат в `lib/l10n/gen/`. В коде строки
+доступны через `context.l10n.<key>`.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Производительность (ТЗ, раздел 12)
+
+Бюджеты: холодный запуск ≤ 1,5 с, размер приложения ≤ 60 МБ.
+
+- Замер запуска до первого кадра — `StartupMetrics` (`lib/core/performance`).
+  В debug-сборке значение печатается в консоль при старте.
+- Release-сборка с деревотрясением иконок (по умолчанию) и выносом
+  символов:
+
+  ```sh
+  # Android: отдельный APK под каждую ABI + символы отдельно
+  flutter build appbundle --release --split-per-abi \
+    --obfuscate --split-debug-info=build/symbols
+
+  # iOS
+  flutter build ipa --release --obfuscate --split-debug-info=build/symbols
+  ```
+
+- Анализ размера: `flutter build apk --release --analyze-size`.
+- Дизайн-система не тянет бинарный Rive-рантайм: волновая анимация
+  реализована лёгким `CustomPainter` (`SonaWaveform`), что помогает
+  удержать размер в бюджете.

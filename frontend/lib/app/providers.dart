@@ -35,6 +35,7 @@ import '../domain/models/category.dart';
 import '../domain/models/currency.dart';
 import '../domain/models/operation.dart';
 import '../domain/models/subscription.dart';
+import '../domain/models/theme_mode.dart';
 import '../domain/services/app_settings_store.dart';
 import '../domain/services/audio_recorder.dart';
 import '../domain/services/biometric_service.dart';
@@ -94,8 +95,7 @@ final dioProvider = Provider<Dio>((ref) {
       ref.watch(registrationDioProvider),
     ),
     RetryInterceptor(dio),
-    if (kDebugMode)
-      LogInterceptor(requestBody: false, responseBody: false),
+    if (kDebugMode) LogInterceptor(requestBody: false, responseBody: false),
   ]);
   return dio;
 });
@@ -285,6 +285,12 @@ class AppSettingsController extends AsyncNotifier<AppSettings> {
     await _update(current.copyWith(recognitionQuality: quality));
   }
 
+  /// Задаёт режим оформления: светлая / тёмная / системная.
+  Future<void> setThemeMode(SonaThemeMode mode) async {
+    final current = state.value ?? const AppSettings();
+    await _update(current.copyWith(themeMode: mode));
+  }
+
   /// Включает защиту входа и задаёт хеш PIN-кода.
   Future<void> enableAppLock(String pinHash) async {
     final current = state.value ?? const AppSettings();
@@ -341,9 +347,9 @@ class AppSettingsController extends AsyncNotifier<AppSettings> {
   Future<void> addAlertMarkers(Set<String> markers) async {
     if (markers.isEmpty) return;
     final current = state.value ?? const AppSettings();
-    await _update(current.copyWith(
-      alertMarkers: {...current.alertMarkers, ...markers},
-    ));
+    await _update(
+      current.copyWith(alertMarkers: {...current.alertMarkers, ...markers}),
+    );
   }
 
   Future<void> _update(AppSettings settings) async {
@@ -356,6 +362,12 @@ class AppSettingsController extends AsyncNotifier<AppSettings> {
 final currencyProvider = Provider<AppCurrency>((ref) {
   final settings = ref.watch(appSettingsProvider).value;
   return currencyByCode(settings?.currencyCode ?? kDefaultCurrencyCode);
+});
+
+/// Выбранный режим оформления (светлая / тёмная / системная).
+final themeModeProvider = Provider<SonaThemeMode>((ref) {
+  return ref.watch(appSettingsProvider).value?.themeMode ??
+      SonaThemeMode.system;
 });
 
 /// Месячный бюджет пользователя (или `null`).
@@ -411,8 +423,9 @@ final monthlyIncomeProvider = FutureProvider<double>((ref) {
 });
 
 /// Расходы за текущий месяц по категориям (только расходы).
-final monthlyExpensesByCategoryProvider =
-    FutureProvider<Map<String, double>>((ref) {
+final monthlyExpensesByCategoryProvider = FutureProvider<Map<String, double>>((
+  ref,
+) {
   ref.watch(recentOperationsProvider);
   final (from, to) = currentMonthRange();
   return ref
@@ -423,12 +436,12 @@ final monthlyExpensesByCategoryProvider =
 /// Расходы за текущий месяц по парам «категория :: подкатегория».
 final monthlyExpensesBySubcategoryProvider =
     FutureProvider<Map<String, double>>((ref) {
-  ref.watch(recentOperationsProvider);
-  final (from, to) = currentMonthRange();
-  return ref
-      .watch(operationRepositoryProvider)
-      .expensesBySubcategory(from: from, to: to);
-});
+      ref.watch(recentOperationsProvider);
+      final (from, to) = currentMonthRange();
+      return ref
+          .watch(operationRepositoryProvider)
+          .expensesBySubcategory(from: from, to: to);
+    });
 
 /// Баланс: все доходы минус все расходы.
 final balanceProvider = FutureProvider<double>((ref) async {
@@ -485,19 +498,12 @@ class AnalyticsSelection {
   bool get filtersCategories => categories.isNotEmpty;
 
   /// Диапазон выбранного периода, содержащий [now].
-  PeriodRange rangeFor(DateTime now) => AnalyticsMath.rangeFor(
-    period,
-    now,
-    customRange: customRange,
-  );
+  PeriodRange rangeFor(DateTime now) =>
+      AnalyticsMath.rangeFor(period, now, customRange: customRange);
 
   /// Диапазон предыдущего периода той же длины.
   PeriodRange previousRangeFor(DateTime now) =>
-      AnalyticsMath.previousRangeFor(
-        period,
-        now,
-        customRange: customRange,
-      );
+      AnalyticsMath.previousRangeFor(period, now, customRange: customRange);
 }
 
 /// Управляет табами периода и фильтрами аналитики.
@@ -596,7 +602,9 @@ const int kAnalyticsTopCategories = 5;
 ///
 /// Пересчитывается реактивно: на любые правки операций и смену
 /// табов периода или фильтров категорий.
-final analyticsOverviewProvider = FutureProvider<AnalyticsOverview>((ref) async {
+final analyticsOverviewProvider = FutureProvider<AnalyticsOverview>((
+  ref,
+) async {
   final selection = ref.watch(analyticsSelectionProvider);
   ref.watch(recentOperationsProvider);
   final repository = ref.watch(operationRepositoryProvider);
@@ -606,9 +614,11 @@ final analyticsOverviewProvider = FutureProvider<AnalyticsOverview>((ref) async 
 
   double sum(Map<String, double> map) {
     return map.entries
-        .where((entry) =>
-            !selection.filtersCategories ||
-            selection.categories.contains(entry.key))
+        .where(
+          (entry) =>
+              !selection.filtersCategories ||
+              selection.categories.contains(entry.key),
+        )
         .fold<double>(0, (sum, entry) => sum + entry.value);
   }
 
@@ -628,19 +638,23 @@ final analyticsOverviewProvider = FutureProvider<AnalyticsOverview>((ref) async 
   final months = <MonthlyBucket>[];
   for (var i = kAnalyticsMonthsVisible - 1; i >= 0; i--) {
     final monthStart = DateTime(now.year, now.month - i);
-    final key = '${monthStart.year}-'
+    final key =
+        '${monthStart.year}-'
         '${monthStart.month.toString().padLeft(2, '0')}';
     final group = monthGroups[key] ?? const <String, double>{};
     months.add(MonthlyBucket(month: monthStart, amount: sum(group)));
   }
 
-  final rankedEntries = currentByCategory.entries
-      .where((entry) =>
-          !selection.filtersCategories ||
-          selection.categories.contains(entry.key))
-      .where((entry) => entry.value > 0)
-      .toList()
-    ..sort((a, b) => b.value.compareTo(a.value));
+  final rankedEntries =
+      currentByCategory.entries
+          .where(
+            (entry) =>
+                !selection.filtersCategories ||
+                selection.categories.contains(entry.key),
+          )
+          .where((entry) => entry.value > 0)
+          .toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
 
   return AnalyticsOverview(
     range: range,

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'category.dart';
 import 'currency.dart';
 import 'subscription.dart';
+import 'theme_mode.dart';
 
 /// Разделитель пары «категория :: подкатегория» в ключах лимитов.
 const String kCategoryLimitSeparator = '::';
@@ -41,6 +42,7 @@ class AppSettings {
     this.pinHash,
     this.autoLockSeconds = kDefaultAutoLockSeconds,
     this.recognitionQuality = RecognitionQuality.standard,
+    this.themeMode = SonaThemeMode.system,
   });
 
   /// Пройден ли онбординг. Пока `false` — приложение показывает онбординг.
@@ -105,11 +107,15 @@ class AppSettings {
   /// Выбранное качество распознавания речи. «Максимум» доступно только Pro.
   final RecognitionQuality recognitionQuality;
 
+  /// Режим оформления: светлая / тёмная / системная.
+  final SonaThemeMode themeMode;
+
   /// Список категорий, которые нужно показывать пользователю.
   ///
   /// Пустое множество трактуется как «все категории по умолчанию».
-  Set<String> get enabledCategories =>
-      selectedCategories.isEmpty ? kDefaultCategories.keys.toSet() : selectedCategories;
+  Set<String> get enabledCategories => selectedCategories.isEmpty
+      ? kDefaultCategories.keys.toSet()
+      : selectedCategories;
 
   /// Действующий лимит для пары «категория — подкатегория»: сначала
   /// проверяется точная пара, затем лимит всей категории.
@@ -140,6 +146,7 @@ class AppSettings {
     Object? pinHash = _unset,
     int? autoLockSeconds,
     RecognitionQuality? recognitionQuality,
+    SonaThemeMode? themeMode,
   }) {
     return AppSettings(
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
@@ -168,6 +175,7 @@ class AppSettings {
       pinHash: pinHash == _unset ? this.pinHash : pinHash as String?,
       autoLockSeconds: autoLockSeconds ?? this.autoLockSeconds,
       recognitionQuality: recognitionQuality ?? this.recognitionQuality,
+      themeMode: themeMode ?? this.themeMode,
     );
   }
 
@@ -190,6 +198,7 @@ class AppSettings {
     'pinHash': pinHash,
     'autoLockSeconds': autoLockSeconds,
     'recognitionQuality': recognitionQuality.wire,
+    'themeMode': themeMode.wire,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -207,7 +216,8 @@ class AppSettings {
             (key, value) => MapEntry(key, (value as num).toDouble()),
           ) ??
           const <String, double>{},
-      alertThresholds: (json['alertThresholds'] as List<dynamic>?)
+      alertThresholds:
+          (json['alertThresholds'] as List<dynamic>?)
               ?.map((value) => (value as num).toInt())
               .toList() ??
           const <int>[50, 80, 100],
@@ -230,6 +240,7 @@ class AppSettings {
       recognitionQuality: RecognitionQuality.fromWire(
         json['recognitionQuality'] as String?,
       ),
+      themeMode: SonaThemeMode.fromWire(json['themeMode'] as String?),
     );
   }
 

@@ -1,8 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../../domain/models/theme_mode.dart';
 import 'app_colors.dart';
 import 'app_spacing.dart';
 import 'app_typography.dart';
+
+/// Преобразует пользовательский режим оформления в [ThemeMode] Flutter.
+extension SonaThemeModeX on SonaThemeMode {
+  ThemeMode get materialThemeMode => switch (this) {
+    SonaThemeMode.system => ThemeMode.system,
+    SonaThemeMode.light => ThemeMode.light,
+    SonaThemeMode.dark => ThemeMode.dark,
+  };
+}
 
 /// Семантические цвета темы (доход, расход, акцент и фон-градиент).
 @immutable
@@ -92,43 +102,42 @@ abstract final class AppTheme {
   const AppTheme._();
 
   static ThemeData light() {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
-      brightness: Brightness.light,
-    ).copyWith(
-      primary: AppColors.primary,
-      onPrimary: Colors.white,
-      secondary: AppColors.accent,
-      onSecondary: AppColors.primary,
-      surface: AppColors.surface,
-      onSurface: AppColors.textPrimary,
-      error: AppColors.error,
-    );
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          brightness: Brightness.light,
+        ).copyWith(
+          primary: AppColors.primary,
+          onPrimary: Colors.white,
+          secondary: AppColors.accent,
+          onSecondary: AppColors.primary,
+          surface: AppColors.surface,
+          onSurface: AppColors.textPrimary,
+          error: AppColors.error,
+        );
 
     return _base(scheme, SonaColors.light);
   }
 
   static ThemeData dark() {
-    final scheme = ColorScheme.fromSeed(
-      seedColor: AppColors.primary,
-      brightness: Brightness.dark,
-    ).copyWith(
-      primary: AppColors.primaryDark,
-      onPrimary: AppColors.backgroundDark,
-      secondary: AppColors.accent,
-      onSecondary: AppColors.primary,
-      surface: AppColors.surfaceDark,
-      onSurface: AppColors.textPrimaryDark,
-      error: AppColors.error,
-    );
+    final scheme =
+        ColorScheme.fromSeed(
+          seedColor: AppColors.primary,
+          brightness: Brightness.dark,
+        ).copyWith(
+          primary: AppColors.primaryDark,
+          onPrimary: AppColors.backgroundDark,
+          secondary: AppColors.accent,
+          onSecondary: AppColors.primary,
+          surface: AppColors.surfaceDark,
+          onSurface: AppColors.textPrimaryDark,
+          error: AppColors.error,
+        );
 
     return _base(scheme, SonaColors.dark);
   }
 
-  static ThemeData _base(
-    ColorScheme scheme,
-    SonaColors sonaColors,
-  ) {
+  static ThemeData _base(ColorScheme scheme, SonaColors sonaColors) {
     final textTheme = AppTypography.textTheme.apply(
       bodyColor: scheme.onSurface,
       displayColor: scheme.onSurface,

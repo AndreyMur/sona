@@ -1,0 +1,55 @@
+{
+  "@@locale": "en",
+
+  "appTitle": "Sona",
+
+  "commonCancel": "Cancel",
+  "commonSave": "Save",
+
+  "appearanceTitle": "Appearance",
+  "appearanceThemeSection": "Theme",
+  "appearanceThemeHint": "The theme applies to the whole app. \"System\" follows your device setting.",
+  "themeModeSystem": "System",
+  "themeModeSystemDescription": "Follows the system",
+  "themeModeLight": "Light",
+  "themeModeLightDescription": "Always light",
+  "themeModeDark": "Dark",
+  "themeModeDarkDescription": "Always dark",
+
+  "profileTitle": "Profile",
+  "profileSections": "Sections",
+  "profileData": "Data",
+  "profileDataSubtitle": "Export and delete",
+  "profileAccounts": "Accounts",
+  "profileCategories": "Categories",
+  "profileNotifications": "Notifications",
+  "profileSecurity": "Security",
+  "profileSecurityOn": "Protection on",
+  "profileSecurityOff": "PIN and biometrics",
+  "profileAppearance": "Appearance",
+  "profileAppearanceSubtitle": "Light, dark, system",
+  "profileSubscription": "Subscription",
+  "profileSignOut": "Sign out",
+  "profileNoName": "No name",
+  "profileAddEmail": "Add email",
+  "profileEditTitle": "Profile",
+  "profileNameLabel": "Name",
+  "profileEmailLabel": "Email",
+  "profileHealthTitle": "Financial health",
+  "profileHealthError": "Could not compute the score",
+  "profileSignOutTitle": "Sign out?",
+  "profileSignOutMessage": "Your data stays on the device, but the app returns to onboarding.",
+  "profileSectionComingSoon": "\"{section}\" is coming in a future update",
+  "@profileSectionComingSoon": {
+    "placeholders": {
+      "section": { "type": "String" }
+    }
+  },
+
+  "a11yThemeOption": "Theme: {name}",
+  "@a11yThemeOption": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  }
+}

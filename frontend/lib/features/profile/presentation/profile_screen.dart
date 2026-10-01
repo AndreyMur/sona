@@ -10,6 +10,7 @@ import '../../../core/utils/financial_health.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
 import '../../../domain/models/app_settings.dart';
 import '../../../domain/models/subscription.dart';
+import '../../../l10n/l10n.dart';
 
 /// Профиль: аватар, имя, email, скоринг «Финансовое здоровье» и меню разделов.
 class ProfileScreen extends ConsumerWidget {
@@ -18,14 +19,16 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final settings = ref.watch(appSettingsProvider).value ?? const AppSettings();
+    final l10n = context.l10n;
+    final settings =
+        ref.watch(appSettingsProvider).value ?? const AppSettings();
     final health = ref.watch(financialHealthProvider);
     final subscription =
         ref.watch(subscriptionProvider).value ?? const SubscriptionState();
     final subscriptionSubtitle = _subscriptionSubtitle(subscription);
 
     return GradientScaffold(
-      appBar: AppBar(title: const Text('Профиль')),
+      appBar: AppBar(title: Text(l10n.profileTitle)),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.lg,
@@ -42,48 +45,55 @@ class ProfileScreen extends ConsumerWidget {
           const SizedBox(height: AppSpacing.md),
           _HealthCard(health: health),
           const SizedBox(height: AppSpacing.lg),
-          Text('Разделы', style: theme.textTheme.titleMedium),
+          Text(l10n.profileSections, style: theme.textTheme.titleMedium),
           const SizedBox(height: AppSpacing.sm),
           Card(
             child: Column(
               children: [
                 _MenuTile(
                   icon: Icons.folder_outlined,
-                  label: 'Данные',
-                  subtitle: 'Экспорт и удаление',
+                  label: l10n.profileData,
+                  subtitle: l10n.profileDataSubtitle,
                   onTap: () => context.push(AppRoutes.profileData),
                 ),
                 const Divider(height: 1, indent: AppSpacing.lg),
                 _MenuTile(
                   icon: Icons.account_balance_wallet_outlined,
-                  label: 'Счета',
-                  onTap: () => _comingSoon(context, 'Счета'),
+                  label: l10n.profileAccounts,
+                  onTap: () => _comingSoon(context, l10n.profileAccounts),
                 ),
                 const Divider(height: 1, indent: AppSpacing.lg),
                 _MenuTile(
                   icon: Icons.category_outlined,
-                  label: 'Категории',
+                  label: l10n.profileCategories,
                   onTap: () => context.push(AppRoutes.categories),
                 ),
                 const Divider(height: 1, indent: AppSpacing.lg),
                 _MenuTile(
                   icon: Icons.notifications_outlined,
-                  label: 'Уведомления',
-                  onTap: () => _comingSoon(context, 'Уведомления'),
+                  label: l10n.profileNotifications,
+                  onTap: () => _comingSoon(context, l10n.profileNotifications),
                 ),
                 const Divider(height: 1, indent: AppSpacing.lg),
                 _MenuTile(
                   icon: Icons.lock_outline_rounded,
-                  label: 'Безопасность',
+                  label: l10n.profileSecurity,
                   subtitle: settings.appLockEnabled
-                      ? 'Защита включена'
-                      : 'PIN и биометрия',
+                      ? l10n.profileSecurityOn
+                      : l10n.profileSecurityOff,
                   onTap: () => context.push(AppRoutes.security),
                 ),
                 const Divider(height: 1, indent: AppSpacing.lg),
                 _MenuTile(
+                  icon: Icons.palette_outlined,
+                  label: l10n.profileAppearance,
+                  subtitle: l10n.profileAppearanceSubtitle,
+                  onTap: () => context.push(AppRoutes.appearance),
+                ),
+                const Divider(height: 1, indent: AppSpacing.lg),
+                _MenuTile(
                   icon: Icons.workspace_premium_outlined,
-                  label: 'Подписка',
+                  label: l10n.profileSubscription,
                   subtitle: subscriptionSubtitle,
                   onTap: () => context.push(AppRoutes.subscription),
                 ),
@@ -94,7 +104,7 @@ class ProfileScreen extends ConsumerWidget {
           OutlinedButton.icon(
             onPressed: () => _signOut(context, ref),
             icon: const Icon(Icons.logout_rounded, size: 20),
-            label: const Text('Выйти'),
+            label: Text(l10n.profileSignOut),
           ),
         ],
       ),
@@ -131,27 +141,25 @@ class ProfileScreen extends ConsumerWidget {
 
   void _comingSoon(BuildContext context, String section) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('«$section» появится в следующих обновлениях')),
+      SnackBar(content: Text(context.l10n.profileSectionComingSoon(section))),
     );
   }
 
   Future<void> _signOut(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Выйти из профиля?'),
-        content: const Text(
-          'Данные останутся на устройстве, но приложение вернётся к экрану '
-          'знакомства.',
-        ),
+        title: Text(l10n.profileSignOutTitle),
+        content: Text(l10n.profileSignOutMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: const Text('Отмена'),
+            child: Text(l10n.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: const Text('Выйти'),
+            child: Text(l10n.profileSignOut),
           ),
         ],
       ),
@@ -177,7 +185,9 @@ class _ProfileHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final sona = context.sonaColors;
-    final displayName = (name == null || name!.isEmpty) ? 'Без имени' : name!;
+    final displayName = (name == null || name!.isEmpty)
+        ? context.l10n.profileNoName
+        : name!;
     final initials = _initials(displayName);
 
     return Card(
@@ -207,7 +217,7 @@ class _ProfileHeader extends StatelessWidget {
                     const SizedBox(height: AppSpacing.xxs),
                     Text(
                       (email == null || email!.isEmpty)
-                          ? 'Добавьте email'
+                          ? context.l10n.profileAddEmail
                           : email!,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -268,10 +278,7 @@ class _HealthCard extends StatelessWidget {
                         backgroundColor: sona.accentSoft,
                         color: color,
                       ),
-                      Text(
-                        '${value.score}',
-                        style: theme.textTheme.titleLarge,
-                      ),
+                      Text('${value.score}', style: theme.textTheme.titleLarge),
                     ],
                   ),
                 ),
@@ -281,7 +288,7 @@ class _HealthCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Финансовое здоровье',
+                        context.l10n.profileHealthTitle,
                         style: theme.textTheme.titleMedium,
                       ),
                       const SizedBox(height: AppSpacing.xxs),
@@ -312,7 +319,7 @@ class _HealthCard extends StatelessWidget {
             child: Center(child: CircularProgressIndicator()),
           ),
           error: (_, _) => Text(
-            'Не удалось рассчитать скоринг',
+            context.l10n.profileHealthError,
             style: theme.textTheme.bodyMedium,
           ),
         ),
@@ -400,8 +407,9 @@ class _ProfileDialogState extends State<_ProfileDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return AlertDialog(
-      title: const Text('Профиль'),
+      title: Text(l10n.profileEditTitle),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -409,26 +417,26 @@ class _ProfileDialogState extends State<_ProfileDialog> {
             controller: _name,
             autofocus: true,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(labelText: 'Имя'),
+            decoration: InputDecoration(labelText: l10n.profileNameLabel),
           ),
           const SizedBox(height: AppSpacing.sm),
           TextField(
             controller: _email,
             keyboardType: TextInputType.emailAddress,
-            decoration: const InputDecoration(labelText: 'Email'),
+            decoration: InputDecoration(labelText: l10n.profileEmailLabel),
           ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Отмена'),
+          child: Text(l10n.commonCancel),
         ),
         FilledButton(
-          onPressed: () => Navigator.of(context).pop(
-            _ProfileDraft(name: _name.text, email: _email.text),
-          ),
-          child: const Text('Сохранить'),
+          onPressed: () =>
+              Navigator.of(context)
+                  .pop(_ProfileDraft(name: _name.text, email: _email.text)),
+          child: Text(l10n.commonSave),
         ),
       ],
     );

@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -6,11 +6,26 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'app/app.dart';
 import 'app/budget_alert_coordinator.dart';
 import 'app/providers.dart';
+import 'core/performance/app_performance.dart';
 import 'data/fallback/demo_stores.dart';
 import 'data/local/app_database.dart';
 import 'data/local/connection.dart';
 import 'data/repositories/category_repository_impl.dart';
 import 'data/services/database_key_provider.dart';
+
+/// Запускает приложение и замеряет время до первого кадра.
+void launchApp(Widget app) {
+  runApp(app);
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    StartupMetrics.markFirstFrame();
+    if (kDebugMode) {
+      debugPrint(
+        'Sona startup: ${StartupMetrics.firstFrame?.inMilliseconds} ms '
+        '(budget ${AppPerformanceBudget.startup.inMilliseconds} ms)',
+      );
+    }
+  });
+}
 
 /// Наблюдатели бюджетных уведомлений: оценка при старте и на изменениях.
 void observeBudgetAlerts(ProviderContainer container) {
@@ -22,6 +37,7 @@ void observeBudgetAlerts(ProviderContainer container) {
 }
 
 Future<void> main() async {
+  StartupMetrics.start();
   WidgetsFlutterBinding.ensureInitialized();
 
   // Веб-демо: нативная БД (SQLCipher) в браузере недоступна — запускаемся
@@ -32,9 +48,7 @@ Future<void> main() async {
         operationRepositoryProvider.overrideWithValue(
           DemoOperationRepository(),
         ),
-        categoryRepositoryProvider.overrideWithValue(
-          DemoCategoryRepository(),
-        ),
+        categoryRepositoryProvider.overrideWithValue(DemoCategoryRepository()),
         categorizationRepositoryProvider.overrideWithValue(
           DemoCategorizationRepository(),
         ),
@@ -45,11 +59,8 @@ Future<void> main() async {
       ],
     );
     observeBudgetAlerts(container);
-    runApp(
-      UncontrolledProviderScope(
-        container: container,
-        child: const SonaApp(),
-      ),
+    launchApp(
+      UncontrolledProviderScope(container: container, child: const SonaApp()),
     );
     return;
   }
@@ -66,10 +77,7 @@ Future<void> main() async {
   );
   observeBudgetAlerts(container);
 
-  runApp(
-    UncontrolledProviderScope(
-      container: container,
-      child: const SonaApp(),
-    ),
+  launchApp(
+    UncontrolledProviderScope(container: container, child: const SonaApp()),
   );
 }

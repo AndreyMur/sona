@@ -8,6 +8,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
+import '../../../core/widgets/sona_waveform.dart';
 import '../../../domain/models/operation.dart';
 import '../../../domain/models/record_state.dart';
 import '../../../domain/models/shortcut.dart';
@@ -16,7 +17,6 @@ import 'widgets/operation_card.dart';
 import 'widgets/operation_edit_sheet.dart';
 import 'widgets/pulsing_mic_button.dart';
 import 'widgets/transcript_card.dart';
-import 'widgets/voice_waveform.dart';
 
 /// Ключевой экран приложения: голос → сохранённая операция.
 ///
@@ -116,16 +116,14 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           onCancel: controller.discard,
         );
       case RecordStage.recognized:
-        return _RecognizedView(
-          key: const ValueKey('recognized'),
-          state: state,
-        );
+        return _RecognizedView(key: const ValueKey('recognized'), state: state);
       case RecordStage.parsed:
         return _ParsedView(
           key: const ValueKey('parsed'),
           state: state,
           onConfirm: controller.confirm,
-          onEdit: (index, operation) => controller.updateOperation(index, operation),
+          onEdit: (index, operation) =>
+              controller.updateOperation(index, operation),
           onRemove: controller.removeOperation,
           onCancel: controller.discard,
           onRefine: controller.refineWithAi,
@@ -283,15 +281,9 @@ class _TextInputViewState extends State<_TextInputView> {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        FilledButton(
-          onPressed: _submit,
-          child: const Text('Разобрать'),
-        ),
+        FilledButton(onPressed: _submit, child: const Text('Разобрать')),
         const SizedBox(height: AppSpacing.xs),
-        OutlinedButton(
-          onPressed: widget.onCancel,
-          child: const Text('Назад'),
-        ),
+        OutlinedButton(onPressed: widget.onCancel, child: const Text('Назад')),
       ],
     );
   }
@@ -326,7 +318,9 @@ class _ShortcutView extends StatelessWidget {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              isCancel ? Icons.undo_rounded : Icons.account_balance_wallet_rounded,
+              isCancel
+                  ? Icons.undo_rounded
+                  : Icons.account_balance_wallet_rounded,
               size: 48,
               color: sona.onAccentSoft,
             ),
@@ -382,7 +376,7 @@ class _ListeningView extends StatelessWidget {
           style: theme.textTheme.titleLarge?.copyWith(color: scheme.primary),
         ),
         const SizedBox(height: AppSpacing.lg),
-        VoiceWaveform(height: 96),
+        const SonaWaveform(height: 96, semanticLabel: 'Идёт запись'),
         const SizedBox(height: AppSpacing.lg),
         Text(
           SonaFormat.timer(elapsed),
@@ -406,10 +400,7 @@ class _ListeningView extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        TextButton(
-          onPressed: onCancel,
-          child: const Text('Отменить'),
-        ),
+        TextButton(onPressed: onCancel, child: const Text('Отменить')),
       ],
     );
   }

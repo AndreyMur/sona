@@ -9,6 +9,7 @@ import 'package:sona/core/theme/app_theme.dart';
 import 'package:sona/data/local/app_database.dart';
 import 'package:sona/domain/models/app_settings.dart';
 import 'package:sona/domain/models/category.dart';
+import 'package:sona/l10n/l10n.dart';
 
 import '../support/fakes.dart';
 
@@ -51,6 +52,9 @@ void main() {
         ],
         child: MaterialApp.router(
           theme: AppTheme.light(),
+          locale: const Locale('ru'),
+          supportedLocales: AppLocalizations.supportedLocales,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
           routerConfig: router,
         ),
       ),
@@ -145,9 +149,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
 
     expect(find.text('Только ручной ввод'), findsOneWidget);
-    await tester.tap(
-      find.widgetWithText(SwitchListTile, 'Только ручной ввод'),
-    );
+    await tester.tap(find.widgetWithText(SwitchListTile, 'Только ручной ввод'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
 
