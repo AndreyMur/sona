@@ -30,6 +30,7 @@ async def parse(
     await check_quota(request, device, config)
 
     nlu = get_nlu(request)
+    priority = device.get("tier") == "pro"
     started = time.perf_counter()
     try:
         result = await nlu.parse(body.text, config)
@@ -42,6 +43,7 @@ async def parse(
             status="error",
             latency_ms=latency_ms,
             detail=str(exc),
+            priority=priority,
         )
         raise ApiError(502, "upstream_error", "Text parsing service is unavailable") from exc
 
@@ -55,6 +57,7 @@ async def parse(
         latency_ms=latency_ms,
         cost_usd=result.cost_usd,
         fallback_used=result.fallback_used,
+        priority=priority,
     )
     return ParseResponse(
         request_id=getattr(request.state, "request_id", ""),

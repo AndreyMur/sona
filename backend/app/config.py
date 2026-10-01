@@ -41,6 +41,16 @@ class Settings(BaseSettings):
     free_monthly_operations: int = 30
     monthly_cost_limit_usd: float = 2.0
 
+    # Приоритетная обработка Pro: во сколько раз выше лимит частоты запросов.
+    pro_rate_limit_multiplier: float = 3.0
+
+    # Подписка Sona Pro: длительность периодов и авто-подтверждение покупки.
+    # В продакшене purchase_token должен проверяться в магазине приложения.
+    subscription_trial_days: int = 7
+    subscription_monthly_days: int = 30
+    subscription_annual_days: int = 365
+    subscription_auto_approve: bool = True
+
     max_audio_bytes: int = 10 * 1024 * 1024
     log_level: str = "INFO"
     trust_proxy_headers: bool = True
