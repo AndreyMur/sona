@@ -14,6 +14,7 @@ import '../../features/profile/presentation/data_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/record/presentation/record_screen.dart';
 import '../../features/security/presentation/security_screen.dart';
+import '../../features/settings/presentation/appearance_screen.dart';
 import '../../features/subscription/presentation/subscription_screen.dart';
 
 /// Маршруты приложения.
@@ -28,6 +29,7 @@ abstract final class AppRoutes {
   static const String profile = '/profile';
   static const String profileData = '/profile/data';
   static const String security = '/profile/security';
+  static const String appearance = '/profile/appearance';
   static const String subscription = '/profile/subscription';
   static const String onboarding = '/onboarding';
 
@@ -139,6 +141,10 @@ GoRouter buildRouter({
       GoRoute(
         path: AppRoutes.security,
         builder: (context, state) => const SecurityScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.appearance,
+        builder: (context, state) => const AppearanceScreen(),
       ),
       GoRoute(
         path: AppRoutes.subscription,

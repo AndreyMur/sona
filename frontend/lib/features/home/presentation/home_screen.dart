@@ -74,10 +74,7 @@ class HomeScreen extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                greetingForNow(),
-                style: theme.textTheme.displayMedium,
-              ),
+              Text(greetingForNow(), style: theme.textTheme.displayMedium),
               const SizedBox(height: AppSpacing.md),
               _BalanceCard(
                 balance: balance.asData?.value,
@@ -97,7 +94,8 @@ class HomeScreen extends ConsumerWidget {
                     child: _QuickActionCard(
                       icon: Icons.keyboard_rounded,
                       label: 'Написать',
-                      onTap: () => context.push('${AppRoutes.record}?mode=text'),
+                      onTap: () =>
+                          context.push('${AppRoutes.record}?mode=text'),
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
@@ -143,10 +141,7 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ],
               const SizedBox(height: AppSpacing.lg),
-              Text(
-                'Последние операции',
-                style: theme.textTheme.titleMedium,
-              ),
+              Text('Последние операции', style: theme.textTheme.titleMedium),
               const SizedBox(height: AppSpacing.sm),
               recent.when(
                 data: (operations) => operations.isEmpty
@@ -208,7 +203,10 @@ class _BalanceCard extends ConsumerWidget {
     final theme = Theme.of(context);
     final sona = context.sonaColors;
     final currency = ref.watch(currencyProvider);
-    final formatted = SonaFormat.amount(balance ?? 0, currency: currency.symbol);
+    final formatted = SonaFormat.amount(
+      balance ?? 0,
+      currency: currency.symbol,
+    );
 
     return Card(
       child: Padding(
@@ -243,11 +241,7 @@ class _BalanceCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: AppSpacing.md),
-                Icon(
-                  Icons.arrow_upward_rounded,
-                  size: 16,
-                  color: sona.expense,
-                ),
+                Icon(Icons.arrow_upward_rounded, size: 16, color: sona.expense),
                 const SizedBox(width: AppSpacing.xxs),
                 Flexible(
                   child: Text(
@@ -351,7 +345,10 @@ class _FreeLimitCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Бесплатный тариф', style: theme.textTheme.titleMedium),
+                    Text(
+                      'Бесплатный тариф',
+                      style: theme.textTheme.titleMedium,
+                    ),
                     const SizedBox(height: AppSpacing.xxs),
                     Text(
                       'Осталось $remaining из $kFreeMonthlyOperations операций',
@@ -423,8 +420,10 @@ class _BudgetProgressCard extends ConsumerWidget {
               Row(
                 children: [
                   Expanded(
-                    child:
-                        Text('Бюджет месяца', style: theme.textTheme.titleMedium),
+                    child: Text(
+                      'Бюджет месяца',
+                      style: theme.textTheme.titleMedium,
+                    ),
                   ),
                   Text(
                     '$percentLabel%',
@@ -441,11 +440,15 @@ class _BudgetProgressCard extends ConsumerWidget {
                 ],
               ),
               const SizedBox(height: AppSpacing.sm),
-              LinearProgressIndicator(
-                value: percent,
-                minHeight: 8,
-                borderRadius: BorderRadius.circular(AppRadius.pill),
-                color: accentColor,
+              Semantics(
+                label: 'Прогресс бюджета',
+                value: '$percentLabel%',
+                child: LinearProgressIndicator(
+                  value: percent,
+                  minHeight: 8,
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  color: accentColor,
+                ),
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
@@ -488,7 +491,11 @@ class _TipCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.tips_and_updates_rounded, size: 20, color: sona.onAccentSoft),
+            Icon(
+              Icons.tips_and_updates_rounded,
+              size: 20,
+              color: sona.onAccentSoft,
+            ),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Column(
@@ -514,10 +521,7 @@ class _TipCard extends StatelessWidget {
 
 /// Плитка последней операции.
 class _OperationTile extends StatelessWidget {
-  const _OperationTile({
-    required this.operation,
-    required this.currencySymbol,
-  });
+  const _OperationTile({required this.operation, required this.currencySymbol});
 
   final Operation operation;
   final String currencySymbol;
@@ -538,7 +542,9 @@ class _OperationTile extends StatelessWidget {
           backgroundColor: sona.accentSoft,
           radius: 20,
           child: Icon(
-            isIncome ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+            isIncome
+                ? Icons.arrow_downward_rounded
+                : Icons.arrow_upward_rounded,
             size: 20,
             color: sona.onAccentSoft,
           ),

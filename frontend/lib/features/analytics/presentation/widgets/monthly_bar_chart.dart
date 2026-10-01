@@ -52,7 +52,9 @@ class MonthlyBarChart extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (final month in months)
-            Expanded(child: _BarColumn(month: month, maxValue: maxValue)),
+            Expanded(
+              child: _BarColumn(month: month, maxValue: maxValue),
+            ),
         ],
       ),
     );
@@ -68,57 +70,74 @@ class _BarColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final factor = maxValue > 0 ? (month.value / maxValue).clamp(0.0, 1.0) : 0.0;
+    final factor = maxValue > 0
+        ? (month.value / maxValue).clamp(0.0, 1.0)
+        : 0.0;
     final barColor = month.current
         ? AppColors.primary
         : AppColors.primary.withValues(alpha: 0.35);
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
-      child: Column(
-        children: [
-          SizedBox(
-            height: theme.textTheme.labelSmall!.fontSize! * 1.4,
-            child: month.value > 0
-                ? Text(
-                    SonaFormat.compact(month.value, currency: month.currency),
-                    textAlign: TextAlign.center,
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                    ),
-                  )
-                : null,
-          ),
-          const SizedBox(height: AppSpacing.xxs),
-          Expanded(
-            child: Align(
-              alignment: Alignment.bottomCenter,
-              child: FractionallySizedBox(
-                heightFactor: factor,
-                widthFactor: 0.55,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: factor > 0 ? barColor : Colors.transparent,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(AppRadius.sm),
+    final semanticValue = month.value > 0
+        ? SonaFormat.compact(month.value, currency: month.currency)
+        : 'нет трат';
+
+    return Semantics(
+      label: '${month.label}: $semanticValue',
+      child: ExcludeSemantics(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xxs),
+          child: Column(
+            children: [
+              SizedBox(
+                height:
+                    MediaQuery.textScalerOf(context)
+                        .scale(theme.textTheme.labelSmall!.fontSize!) *
+                    1.4,
+                child: month.value > 0
+                    ? Text(
+                        SonaFormat.compact(
+                          month.value,
+                          currency: month.currency,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.clip,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(height: AppSpacing.xxs),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.bottomCenter,
+                  child: FractionallySizedBox(
+                    heightFactor: factor,
+                    widthFactor: 0.55,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: factor > 0 ? barColor : Colors.transparent,
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(AppRadius.sm),
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
+              const SizedBox(height: AppSpacing.xxs),
+              Text(
+                month.label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: month.current
+                      ? theme.colorScheme.onSurface
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            month.label,
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: month.current
-                  ? theme.colorScheme.onSurface
-                  : theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

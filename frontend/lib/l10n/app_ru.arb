@@ -1,0 +1,55 @@
+{
+  "@@locale": "ru",
+
+  "appTitle": "Sona",
+
+  "commonCancel": "Отмена",
+  "commonSave": "Сохранить",
+
+  "appearanceTitle": "Внешний вид",
+  "appearanceThemeSection": "Тема оформления",
+  "appearanceThemeHint": "Тема применяется ко всему приложению. «Системная» повторяет настройку устройства.",
+  "themeModeSystem": "Системная",
+  "themeModeSystemDescription": "Как в системе",
+  "themeModeLight": "Светлая",
+  "themeModeLightDescription": "Всегда светлое оформление",
+  "themeModeDark": "Тёмная",
+  "themeModeDarkDescription": "Всегда тёмное оформление",
+
+  "profileTitle": "Профиль",
+  "profileSections": "Разделы",
+  "profileData": "Данные",
+  "profileDataSubtitle": "Экспорт и удаление",
+  "profileAccounts": "Счета",
+  "profileCategories": "Категории",
+  "profileNotifications": "Уведомления",
+  "profileSecurity": "Безопасность",
+  "profileSecurityOn": "Защита включена",
+  "profileSecurityOff": "PIN и биометрия",
+  "profileAppearance": "Внешний вид",
+  "profileAppearanceSubtitle": "Светлая, тёмная, системная",
+  "profileSubscription": "Подписка",
+  "profileSignOut": "Выйти",
+  "profileNoName": "Без имени",
+  "profileAddEmail": "Добавьте email",
+  "profileEditTitle": "Профиль",
+  "profileNameLabel": "Имя",
+  "profileEmailLabel": "Email",
+  "profileHealthTitle": "Финансовое здоровье",
+  "profileHealthError": "Не удалось рассчитать скоринг",
+  "profileSignOutTitle": "Выйти из профиля?",
+  "profileSignOutMessage": "Данные останутся на устройстве, но приложение вернётся к экрану знакомства.",
+  "profileSectionComingSoon": "«{section}» появится в следующих обновлениях",
+  "@profileSectionComingSoon": {
+    "placeholders": {
+      "section": { "type": "String" }
+    }
+  },
+
+  "a11yThemeOption": "Тема: {name}",
+  "@a11yThemeOption": {
+    "placeholders": {
+      "name": { "type": "String" }
+    }
+  }
+}

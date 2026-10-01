@@ -6,7 +6,11 @@ import '../../../../core/theme/app_colors.dart';
 
 /// Срез пончик-диаграммы: подпись, величина и цвет сегмента.
 class DonutSlice {
-  const DonutSlice({required this.label, required this.value, required this.color});
+  const DonutSlice({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
 
   final String label;
   final double value;
@@ -32,6 +36,7 @@ class DonutChart extends StatelessWidget {
     this.size = 168,
     this.strokeWidth = 26,
     this.center,
+    this.semanticLabel,
   });
 
   final List<DonutSlice> slices;
@@ -39,34 +44,50 @@ class DonutChart extends StatelessWidget {
   final double strokeWidth;
   final Widget? center;
 
+  /// Подпись для VoiceOver / TalkBack. Если не задана, диаграмма
+  /// описывается автоматически по срезам.
+  final String? semanticLabel;
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _DonutPainter(
-                slices: slices,
-                strokeWidth: strokeWidth,
-                trackColor:
-                    Theme.of(context).colorScheme.outlineVariant.withValues(
-                          alpha: 0.5,
-                        ),
+    return Semantics(
+      image: true,
+      label: semanticLabel ?? _describe(),
+      child: ExcludeSemantics(
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Positioned.fill(
+                child: CustomPaint(
+                  painter: _DonutPainter(
+                    slices: slices,
+                    strokeWidth: strokeWidth,
+                    trackColor: Theme.of(context).colorScheme.outlineVariant
+                        .withValues(alpha: 0.5),
+                  ),
+                ),
               ),
-            ),
+              if (center != null)
+                Padding(padding: EdgeInsets.all(strokeWidth), child: center),
+            ],
           ),
-          if (center != null)
-            Padding(
-              padding: EdgeInsets.all(strokeWidth),
-              child: center,
-            ),
-        ],
+        ),
       ),
     );
+  }
+
+  /// Текстовое описание срезов в процентах от общей суммы.
+  String _describe() {
+    final total = slices.fold<double>(0, (sum, slice) => sum + slice.value);
+    if (total <= 0) return 'Диаграмма расходов: нет данных';
+    final parts = slices.map((slice) {
+      final percent = (slice.value / total * 100).round();
+      return '${slice.label} $percent%';
+    });
+    return 'Диаграмма расходов: ${parts.join(', ')}';
   }
 }
 
