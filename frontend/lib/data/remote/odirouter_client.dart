@@ -3,14 +3,17 @@ import 'package:path/path.dart' as p;
 
 import '../../domain/models/operation.dart';
 import '../../domain/models/recognition.dart';
+import '../../domain/models/subscription.dart';
 import '../../domain/services/recognition_service.dart';
+import '../../domain/services/subscription_gateway.dart';
 import 'api_exception.dart';
 
 /// Клиент self-hosted прокси к OdiRouter.
 ///
 /// Реализует распознавание речи (STT) и разбор текста (NLU). Ключ OdiRouter
 /// хранится на сервере и в приложение не попадает.
-class OdiRouterClient implements SpeechRecognitionService, TextParsingService {
+class OdiRouterClient
+    implements SpeechRecognitionService, TextParsingService, SubscriptionGateway {
   OdiRouterClient(this._dio);
 
   final Dio _dio;
@@ -89,6 +92,42 @@ class OdiRouterClient implements SpeechRecognitionService, TextParsingService {
           (value as List?)?.map((e) => e.toString()).toList() ?? const [],
         ),
       );
+    } on DioException catch (error) {
+      throw mapDioException(error);
+    }
+  }
+
+  /// Сообщает прокси об активации Sona Pro.
+  @override
+  Future<void> activate({
+    required SubscriptionPlan plan,
+    String? platform,
+    String? purchaseToken,
+    bool trial = false,
+    DateTime? expiresAt,
+  }) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/v1/subscription',
+        data: {
+          'plan': plan.id,
+          'platform': ?platform,
+          'purchase_token': ?purchaseToken,
+          'trial': trial,
+          if (expiresAt != null)
+            'expires_at': expiresAt.toUtc().toIso8601String(),
+        },
+      );
+    } on DioException catch (error) {
+      throw mapDioException(error);
+    }
+  }
+
+  /// Возвращает устройство на бесплатный тариф.
+  @override
+  Future<void> deactivate() async {
+    try {
+      await _dio.delete<Map<String, dynamic>>('/v1/subscription');
     } on DioException catch (error) {
       throw mapDioException(error);
     }

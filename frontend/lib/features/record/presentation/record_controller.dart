@@ -95,9 +95,10 @@ class RecordController extends Notifier<RecordState> {
         );
       }
 
+      final quality = ref.read(recognitionQualityProvider).wire;
       final transcription = await ref
           .read(speechRecognitionProvider)
-          .transcribe(path);
+          .transcribe(path, quality: quality);
       final text = transcription.text.trim();
       if (text.isEmpty) {
         throw const SonaApiException(
@@ -121,6 +122,7 @@ class RecordController extends Notifier<RecordState> {
         errorMessage: error.kind == SonaErrorKind.network
             ? 'Нет соединения. Введите операцию текстом.'
             : error.message,
+        quotaExceeded: error.kind == SonaErrorKind.quotaExceeded,
       );
     } catch (_) {
       _processingStopwatch.stop();
@@ -340,6 +342,7 @@ class RecordController extends Notifier<RecordState> {
           stage: RecordStage.error,
           isBusy: false,
           errorMessage: error.message,
+          quotaExceeded: error.kind == SonaErrorKind.quotaExceeded,
         );
       }
     } catch (_) {

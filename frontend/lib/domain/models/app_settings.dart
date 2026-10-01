@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'category.dart';
 import 'currency.dart';
+import 'subscription.dart';
 
 /// Разделитель пары «категория :: подкатегория» в ключах лимитов.
 const String kCategoryLimitSeparator = '::';
@@ -39,6 +40,7 @@ class AppSettings {
     this.biometricEnabled = false,
     this.pinHash,
     this.autoLockSeconds = kDefaultAutoLockSeconds,
+    this.recognitionQuality = RecognitionQuality.standard,
   });
 
   /// Пройден ли онбординг. Пока `false` — приложение показывает онбординг.
@@ -100,6 +102,9 @@ class AppSettings {
   /// ([kLockImmediatelySeconds] — сразу, 0 — мгновенно).
   final int autoLockSeconds;
 
+  /// Выбранное качество распознавания речи. «Максимум» доступно только Pro.
+  final RecognitionQuality recognitionQuality;
+
   /// Список категорий, которые нужно показывать пользователю.
   ///
   /// Пустое множество трактуется как «все категории по умолчанию».
@@ -134,6 +139,7 @@ class AppSettings {
     bool? biometricEnabled,
     Object? pinHash = _unset,
     int? autoLockSeconds,
+    RecognitionQuality? recognitionQuality,
   }) {
     return AppSettings(
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
@@ -161,6 +167,7 @@ class AppSettings {
       biometricEnabled: biometricEnabled ?? this.biometricEnabled,
       pinHash: pinHash == _unset ? this.pinHash : pinHash as String?,
       autoLockSeconds: autoLockSeconds ?? this.autoLockSeconds,
+      recognitionQuality: recognitionQuality ?? this.recognitionQuality,
     );
   }
 
@@ -182,6 +189,7 @@ class AppSettings {
     'biometricEnabled': biometricEnabled,
     'pinHash': pinHash,
     'autoLockSeconds': autoLockSeconds,
+    'recognitionQuality': recognitionQuality.wire,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -219,6 +227,9 @@ class AppSettings {
       pinHash: json['pinHash'] as String?,
       autoLockSeconds:
           (json['autoLockSeconds'] as num?)?.toInt() ?? kDefaultAutoLockSeconds,
+      recognitionQuality: RecognitionQuality.fromWire(
+        json['recognitionQuality'] as String?,
+      ),
     );
   }
 

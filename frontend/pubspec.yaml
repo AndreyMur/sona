@@ -53,6 +53,7 @@ dependencies:
   timezone: ^0.10.1
   local_auth: ^3.0.2
   crypto: ^3.0.7
+  in_app_purchase: ^3.2.0
 
 # SQLCipher: шифрование локальной БД через сборку sqlite3 с поддержкой шифрования.
 hooks:

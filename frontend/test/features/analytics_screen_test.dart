@@ -42,6 +42,10 @@ void main() {
         overrides: [
           appDatabaseProvider.overrideWithValue(db),
           appSettingsStoreProvider.overrideWithValue(store),
+          // Аналитика полная — как на тарифе Sona Pro.
+          subscriptionStoreProvider.overrideWithValue(
+            FakeSubscriptionStore(proSubscription()),
+          ),
         ],
         child: MaterialApp.router(
           theme: AppTheme.light(),
