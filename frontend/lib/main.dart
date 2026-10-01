@@ -40,6 +40,7 @@ Future<void> main() async {
         ),
         appSettingsStoreProvider.overrideWithValue(DemoAppSettingsStore()),
         notificationsPortProvider.overrideWithValue(DemoSonaNotifications()),
+        dataExportStoreProvider.overrideWithValue(DemoDataExportStore()),
       ],
     );
     observeBudgetAlerts(container);

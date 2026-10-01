@@ -10,7 +10,10 @@ import '../../features/categories/presentation/categories_screen.dart';
 import '../../features/home/presentation/home_screen.dart';
 import '../../features/onboarding/presentation/loading_screen.dart';
 import '../../features/onboarding/presentation/onboarding_screen.dart';
+import '../../features/profile/presentation/data_screen.dart';
+import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/record/presentation/record_screen.dart';
+import '../../features/security/presentation/security_screen.dart';
 
 /// Маршруты приложения.
 abstract final class AppRoutes {
@@ -21,6 +24,9 @@ abstract final class AppRoutes {
   static const String categories = '/categories';
   static const String budget = '/budget';
   static const String analytics = '/analytics';
+  static const String profile = '/profile';
+  static const String profileData = '/profile/data';
+  static const String security = '/profile/security';
   static const String onboarding = '/onboarding';
 
   /// Служебный экран: показывается, пока настройки ещё загружаются.
@@ -119,6 +125,18 @@ GoRouter buildRouter({
       GoRoute(
         path: AppRoutes.analytics,
         builder: (context, state) => const AnalyticsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profileData,
+        builder: (context, state) => const DataScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.security,
+        builder: (context, state) => const SecurityScreen(),
       ),
       GoRoute(
         path: AppRoutes.onboarding,

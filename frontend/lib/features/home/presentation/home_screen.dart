@@ -52,7 +52,16 @@ class HomeScreen extends ConsumerWidget {
     final currency = ref.watch(currencyProvider);
 
     return GradientScaffold(
-      appBar: AppBar(title: const Text('Sona')),
+      appBar: AppBar(
+        title: const Text('Sona'),
+        actions: [
+          IconButton(
+            tooltip: 'Профиль',
+            icon: const Icon(Icons.person_outline_rounded),
+            onPressed: () => context.push(AppRoutes.profile),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(

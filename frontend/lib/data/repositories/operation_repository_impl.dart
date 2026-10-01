@@ -26,6 +26,9 @@ class DriftOperationRepository implements OperationRepository {
       _db.recentOperations(limit: limit);
 
   @override
+  Future<List<Operation>> all() => _db.allOperations();
+
+  @override
   Stream<List<Operation>> watchRecent({int limit = 20}) =>
       _db.watchRecentOperations(limit: limit);
 
@@ -34,6 +37,9 @@ class DriftOperationRepository implements OperationRepository {
 
   @override
   Future<void> delete(int id) => _db.deleteOperation(id);
+
+  @override
+  Future<void> deleteAll() => _db.deleteAllOperations();
 
   @override
   Future<double> totalByType(

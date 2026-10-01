@@ -7,6 +7,7 @@ import '../../domain/models/operation.dart';
 import '../../domain/repositories/categorization_repository.dart';
 import '../../domain/repositories/operation_repository.dart';
 import '../../domain/services/app_settings_store.dart';
+import '../../domain/services/data_export_store.dart';
 import '../../domain/services/notification_service.dart';
 
 /// In-memory-реализации доменных хранилищ для запуска веб-версии:
@@ -78,6 +79,9 @@ class DemoCategoryRepository implements CategoryRepository {
     _seed(categories);
     _notify();
   }
+
+  @override
+  Future<void> resetToDefaults() => replaceAll(kDefaultCategories);
 
   @override
   Future<Category> addCategory(String name, {bool isIncome = false}) async {
@@ -243,6 +247,9 @@ class DemoOperationRepository implements OperationRepository {
       _snapshot().take(limit).toList();
 
   @override
+  Future<List<Operation>> all() async => _snapshot();
+
+  @override
   Stream<List<Operation>> watchRecent({int limit = 20}) async* {
     yield await recent(limit: limit);
     await for (final _ in _changes.stream) {
@@ -259,6 +266,12 @@ class DemoOperationRepository implements OperationRepository {
   @override
   Future<void> delete(int id) async {
     _operations.remove(id);
+    _notify();
+  }
+
+  @override
+  Future<void> deleteAll() async {
+    _operations.clear();
     _notify();
   }
 
@@ -392,6 +405,12 @@ class DemoCategorizationRepository implements CategorizationRepository {
     _rules.remove(id);
     _controller.add(_rules.values.toList());
   }
+
+  @override
+  Future<void> deleteAll() async {
+    _rules.clear();
+    _controller.add(_rules.values.toList());
+  }
 }
 
 /// Настройки в памяти (валюта, бюджет, лимиты до перезагрузки).
@@ -406,6 +425,19 @@ class DemoAppSettingsStore implements AppSettingsStore {
 
   @override
   Future<void> save(AppSettings value) async => settings = value;
+}
+
+/// Экспорт данных в веб-демо: файл не пишется, содержимое остаётся в памяти.
+class DemoDataExportStore implements DataExportStore {
+  String? lastFileName;
+  String? lastContent;
+
+  @override
+  Future<String> write(String fileName, String content) async {
+    lastFileName = fileName;
+    lastContent = content;
+    return 'demo://$fileName';
+  }
 }
 
 /// Уведомления в памяти-заглушке: плагин в демо не используется.
