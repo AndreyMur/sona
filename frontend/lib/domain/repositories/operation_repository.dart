@@ -13,6 +13,9 @@ abstract interface class OperationRepository {
   /// Последние сохранённые операции (по дате, затем по времени создания).
   Future<List<Operation>> recent({int limit = 20});
 
+  /// Все сохранённые операции (для экспорта данных).
+  Future<List<Operation>> all();
+
   /// Поток последних операций для реактивного UI.
   Stream<List<Operation>> watchRecent({int limit = 20});
 
@@ -21,6 +24,9 @@ abstract interface class OperationRepository {
 
   /// Удаляет операцию по локальному id.
   Future<void> delete(int id);
+
+  /// Удаляет все операции пользователя.
+  Future<void> deleteAll();
 
   /// Сумма операций указанного [type] за период `[from, to)`.
   Future<double> totalByType(
@@ -72,6 +78,9 @@ abstract interface class CategoryRepository {
   /// Заменяет категории значениями из remote config (сохраняя пользовательские
   /// правки не требуется в MVP).
   Future<void> replaceAll(Map<String, List<String>> categories);
+
+  /// Сбрасывает справочник к категориям по умолчанию.
+  Future<void> resetToDefaults();
 
   /// Добавляет категорию и возвращает её.
   Future<Category> addCategory(String name, {bool isIncome = false});

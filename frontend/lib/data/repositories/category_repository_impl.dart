@@ -26,6 +26,9 @@ class DriftCategoryRepository implements CategoryRepository {
       _db.replaceCategories(categories);
 
   @override
+  Future<void> resetToDefaults() => _db.resetCategoriesToDefaults();
+
+  @override
   Future<Category> addCategory(String name, {bool isIncome = false}) async {
     final id = await _db.addCategory(name, isIncome: isIncome);
     return Category(

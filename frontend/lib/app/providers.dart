@@ -1,11 +1,12 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../core/config/app_config.dart';
 import '../core/utils/analytics_math.dart';
 import '../core/utils/budget_math.dart';
+import '../core/utils/financial_health.dart';
 import '../data/local/app_database.dart';
 import '../data/remote/interceptors.dart';
 import '../data/remote/odirouter_client.dart';
@@ -15,6 +16,8 @@ import '../data/repositories/operation_repository_impl.dart';
 import '../data/services/audio_recorder_service.dart';
 import '../data/services/connectivity_service_impl.dart';
 import '../data/services/device_identity_store.dart';
+import '../data/services/file_data_export_store.dart';
+import '../data/services/local_auth_biometric_service.dart';
 import '../data/services/local_notification_service.dart';
 import '../data/services/local_text_parser.dart';
 import '../data/services/permission_service_impl.dart';
@@ -29,7 +32,9 @@ import '../domain/models/currency.dart';
 import '../domain/models/operation.dart';
 import '../domain/services/app_settings_store.dart';
 import '../domain/services/audio_recorder.dart';
+import '../domain/services/biometric_service.dart';
 import '../domain/services/connectivity_service.dart';
+import '../domain/services/data_export_store.dart';
 import '../domain/services/learning_text_parser.dart';
 import '../domain/services/permission_service.dart';
 import '../domain/services/recognition_service.dart';
@@ -39,6 +44,15 @@ import '../domain/services/recording_file_store.dart';
 /// Защищённое хранилище секретов приложения.
 final secureStorageProvider = Provider<FlutterSecureStorage>(
   (ref) => const FlutterSecureStorage(),
+);
+
+/// Биометрическая аутентификация (Face ID / Touch ID / отпечаток).
+///
+/// На веб-платформе биометрия недоступна — отдаём заглушку.
+final biometricServiceProvider = Provider<BiometricService>(
+  (ref) => kIsWeb
+      ? const UnsupportedBiometricService()
+      : LocalAuthBiometricService(),
 );
 
 /// Базовый URL прокси.
@@ -240,6 +254,75 @@ class AppSettingsController extends AsyncNotifier<AppSettings> {
     );
   }
 
+  /// Обновляет имя и/или email пользователя в профиле.
+  Future<void> setProfile({String? name, String? email}) async {
+    final current = state.value ?? const AppSettings();
+    await _update(
+      current.copyWith(
+        userName: name == null ? current.userName : _blankToNull(name),
+        userEmail: email == null ? current.userEmail : _blankToNull(email),
+      ),
+    );
+  }
+
+  /// Включает или выключает режим «Только ручной ввод».
+  Future<void> setManualOnlyMode(bool enabled) async {
+    final current = state.value ?? const AppSettings();
+    await _update(current.copyWith(manualOnlyMode: enabled));
+  }
+
+  /// Включает защиту входа и задаёт хеш PIN-кода.
+  Future<void> enableAppLock(String pinHash) async {
+    final current = state.value ?? const AppSettings();
+    await _update(current.copyWith(appLockEnabled: true, pinHash: pinHash));
+  }
+
+  /// Меняет PIN-код, не выключая защиту.
+  Future<void> setPinHash(String pinHash) async {
+    final current = state.value ?? const AppSettings();
+    await _update(current.copyWith(pinHash: pinHash));
+  }
+
+  /// Выключает защиту входа и сбрасывает PIN/биометрию.
+  Future<void> disableAppLock() async {
+    final current = state.value ?? const AppSettings();
+    await _update(
+      current.copyWith(
+        appLockEnabled: false,
+        biometricEnabled: false,
+        pinHash: null,
+      ),
+    );
+  }
+
+  /// Включает или выключает вход по биометрии.
+  Future<void> setBiometricEnabled(bool enabled) async {
+    final current = state.value ?? const AppSettings();
+    await _update(current.copyWith(biometricEnabled: enabled));
+  }
+
+  /// Задаёт задержку автоблокировки в секундах.
+  Future<void> setAutoLockSeconds(int seconds) async {
+    final current = state.value ?? const AppSettings();
+    await _update(current.copyWith(autoLockSeconds: seconds));
+  }
+
+  /// Сбрасывает настройки к значениям по умолчанию, сохраняя онбординг.
+  Future<void> resetToDefaults() async {
+    await _update(const AppSettings(onboardingCompleted: true));
+  }
+
+  /// Возвращает приложение к онбордингу (выход из профиля).
+  Future<void> signOut() async {
+    final current = state.value ?? const AppSettings();
+    await _update(AppSettings(currencyCode: current.currencyCode));
+  }
+
+  String? _blankToNull(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
   /// Добавляет маркеры отправленных событий уведомлений (идемпотентность).
   Future<void> addAlertMarkers(Set<String> markers) async {
     if (markers.isEmpty) return;
@@ -340,6 +423,30 @@ final balanceProvider = FutureProvider<double>((ref) async {
   final income = await repository.totalByType(OperationType.income);
   final expense = await repository.totalByType(OperationType.expense);
   return income - expense;
+});
+
+/// Число операций за текущий месяц (для скоринга финансового здоровья).
+final monthlyOperationCountProvider = FutureProvider<int>((ref) async {
+  ref.watch(recentOperationsProvider);
+  final (from, to) = currentMonthRange();
+  final operations = await ref.watch(operationRepositoryProvider).all();
+  return operations
+      .where((op) => !op.date.isBefore(from) && op.date.isBefore(to))
+      .length;
+});
+
+/// Скоринг «Финансовое здоровье» (0–100) для профиля.
+final financialHealthProvider = FutureProvider<FinancialHealth>((ref) async {
+  final income = await ref.watch(monthlyIncomeProvider.future);
+  final expense = await ref.watch(monthlyExpenseProvider.future);
+  final budget = ref.watch(monthlyBudgetProvider);
+  final operations = await ref.watch(monthlyOperationCountProvider.future);
+  return computeFinancialHealth(
+    monthlyIncome: income,
+    monthlyExpense: expense,
+    monthlyBudget: budget,
+    operationsThisMonth: operations,
+  );
 });
 
 /// Выбор пользователя на экране аналитики: период, произвольный диапазон
@@ -636,4 +743,9 @@ final permissionServiceProvider = Provider<PermissionService>(
 /// Порт доставки локальных уведомлений.
 final notificationsPortProvider = Provider<SonaNotifications>(
   (ref) => LocalNotificationsService(),
+);
+
+/// Хранилище файлов экспорта данных пользователя.
+final dataExportStoreProvider = Provider<DataExportStore>(
+  (ref) => FileDataExportStore(),
 );

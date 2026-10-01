@@ -6,6 +6,12 @@ import 'currency.dart';
 /// Разделитель пары «категория :: подкатегория» в ключах лимитов.
 const String kCategoryLimitSeparator = '::';
 
+/// Автоблокировка по умолчанию: 60 секунд в фоне (см. [AppSettings.autoLockSeconds]).
+const int kDefaultAutoLockSeconds = 60;
+
+/// Значение [AppSettings.autoLockSeconds] «блокировать сразу» при уходе в фон.
+const int kLockImmediatelySeconds = 0;
+
 /// Ключ лимита расхода для пары «категория — подкатегория».
 String subcategoryLimitKey(String category, String subcategory) =>
     '$category$kCategoryLimitSeparator$subcategory';
@@ -26,6 +32,13 @@ class AppSettings {
     this.carryOverAmount,
     this.lastProcessedMonth,
     this.alertMarkers = const <String>{},
+    this.userName,
+    this.userEmail,
+    this.manualOnlyMode = false,
+    this.appLockEnabled = false,
+    this.biometricEnabled = false,
+    this.pinHash,
+    this.autoLockSeconds = kDefaultAutoLockSeconds,
   });
 
   /// Пройден ли онбординг. Пока `false` — приложение показывает онбординг.
@@ -64,6 +77,29 @@ class AppSettings {
   /// `anomaly:2026-09-15` — аномалия трат уже сообщена в этот день.
   final Set<String> alertMarkers;
 
+  /// Отображаемое имя пользователя (необязательно).
+  final String? userName;
+
+  /// Email пользователя (необязательно).
+  final String? userEmail;
+
+  /// Режим «Только ручной ввод»: приложение работает полностью локально
+  /// и не отправляет аудио в облако.
+  final bool manualOnlyMode;
+
+  /// Включена ли защита входа (PIN / биометрия).
+  final bool appLockEnabled;
+
+  /// Разрешён ли вход по Face ID / Touch ID.
+  final bool biometricEnabled;
+
+  /// Хеш PIN-кода (см. `PinHasher`). `null` — PIN не задан.
+  final String? pinHash;
+
+  /// Через сколько секунд в фоне срабатывает автоблокировка
+  /// ([kLockImmediatelySeconds] — сразу, 0 — мгновенно).
+  final int autoLockSeconds;
+
   /// Список категорий, которые нужно показывать пользователю.
   ///
   /// Пустое множество трактуется как «все категории по умолчанию».
@@ -91,6 +127,13 @@ class AppSettings {
     Object? carryOverAmount = _unset,
     Object? lastProcessedMonth = _unset,
     Set<String>? alertMarkers,
+    Object? userName = _unset,
+    Object? userEmail = _unset,
+    bool? manualOnlyMode,
+    bool? appLockEnabled,
+    bool? biometricEnabled,
+    Object? pinHash = _unset,
+    int? autoLockSeconds,
   }) {
     return AppSettings(
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
@@ -111,6 +154,13 @@ class AppSettings {
           ? this.lastProcessedMonth
           : lastProcessedMonth as String?,
       alertMarkers: alertMarkers ?? this.alertMarkers,
+      userName: userName == _unset ? this.userName : userName as String?,
+      userEmail: userEmail == _unset ? this.userEmail : userEmail as String?,
+      manualOnlyMode: manualOnlyMode ?? this.manualOnlyMode,
+      appLockEnabled: appLockEnabled ?? this.appLockEnabled,
+      biometricEnabled: biometricEnabled ?? this.biometricEnabled,
+      pinHash: pinHash == _unset ? this.pinHash : pinHash as String?,
+      autoLockSeconds: autoLockSeconds ?? this.autoLockSeconds,
     );
   }
 
@@ -125,6 +175,13 @@ class AppSettings {
     'carryOverAmount': carryOverAmount,
     'lastProcessedMonth': lastProcessedMonth,
     'alertMarkers': alertMarkers.toList(),
+    'userName': userName,
+    'userEmail': userEmail,
+    'manualOnlyMode': manualOnlyMode,
+    'appLockEnabled': appLockEnabled,
+    'biometricEnabled': biometricEnabled,
+    'pinHash': pinHash,
+    'autoLockSeconds': autoLockSeconds,
   };
 
   factory AppSettings.fromJson(Map<String, dynamic> json) {
@@ -154,6 +211,14 @@ class AppSettings {
               ?.map((value) => value.toString())
               .toSet() ??
           const <String>{},
+      userName: json['userName'] as String?,
+      userEmail: json['userEmail'] as String?,
+      manualOnlyMode: json['manualOnlyMode'] as bool? ?? false,
+      appLockEnabled: json['appLockEnabled'] as bool? ?? false,
+      biometricEnabled: json['biometricEnabled'] as bool? ?? false,
+      pinHash: json['pinHash'] as String?,
+      autoLockSeconds:
+          (json['autoLockSeconds'] as num?)?.toInt() ?? kDefaultAutoLockSeconds,
     );
   }
 

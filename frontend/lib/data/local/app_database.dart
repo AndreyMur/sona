@@ -91,6 +91,12 @@ class AppDatabase extends _$AppDatabase {
     return query.get().then((rows) => rows.map(_toOperation).toList());
   }
 
+  Future<List<Operation>> allOperations() {
+    final query = select(operations)
+      ..orderBy([(t) => OrderingTerm.desc(t.date)]);
+    return query.get().then((rows) => rows.map(_toOperation).toList());
+  }
+
   Stream<List<Operation>> watchRecentOperations({int limit = 20}) {
     final query = select(operations)
       ..orderBy([
@@ -147,6 +153,9 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteOperation(int id) {
     return (delete(operations)..where((t) => t.id.equals(id))).go();
   }
+
+  /// Удаляет все операции пользователя (полный сброс данных).
+  Future<void> deleteAllOperations() => delete(operations).go();
 
   /// Сумма операций с фильтрами по типу, категории и периоду `[from, to)`.
   Future<double> sumAmounts({
@@ -463,6 +472,13 @@ class AppDatabase extends _$AppDatabase {
   Future<void> deleteRule(int id) {
     return (delete(categorizationRules)..where((t) => t.id.equals(id))).go();
   }
+
+  /// Удаляет все выученные правила категоризации.
+  Future<void> deleteAllRules() => delete(categorizationRules).go();
+
+  /// Сбрасывает категории к набору по умолчанию.
+  Future<void> resetCategoriesToDefaults() =>
+      replaceCategories(kDefaultCategories);
 
   CategorizationRule _toRule(CategorizationRuleRow row) {
     return CategorizationRule(

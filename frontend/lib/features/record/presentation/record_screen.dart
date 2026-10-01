@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/providers.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
@@ -55,6 +56,8 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
   Widget build(BuildContext context) {
     final state = ref.watch(recordControllerProvider);
     final controller = ref.read(recordControllerProvider.notifier);
+    final manualOnly =
+        ref.watch(appSettingsProvider).value?.manualOnlyMode ?? false;
 
     return GradientScaffold(
       appBar: AppBar(
@@ -75,7 +78,7 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           padding: const EdgeInsets.all(AppSpacing.lg),
           child: AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
-            child: _buildStage(context, state, controller),
+            child: _buildStage(context, state, controller, manualOnly),
           ),
         ),
       ),
@@ -86,17 +89,20 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
     BuildContext context,
     RecordState state,
     RecordController controller,
+    bool manualOnly,
   ) {
     switch (state.stage) {
       case RecordStage.idle:
         return _IdleView(
           key: const ValueKey('idle'),
+          manualOnly: manualOnly,
           onStart: controller.startListening,
           onWrite: controller.startTextInput,
         );
       case RecordStage.textInput:
         return _TextInputView(
           key: const ValueKey('textInput'),
+          manualOnly: manualOnly,
           onSubmit: controller.submitText,
           onCancel: controller.cancelTextInput,
         );
@@ -149,36 +155,58 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
 class _IdleView extends StatelessWidget {
   const _IdleView({
     super.key,
+    required this.manualOnly,
     required this.onStart,
     required this.onWrite,
   });
 
+  final bool manualOnly;
   final Future<void> Function() onStart;
   final VoidCallback onWrite;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final sona = context.sonaColors;
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            'Скажите, что потратили',
+            manualOnly ? 'Введите операцию' : 'Скажите, что потратили',
             style: theme.textTheme.displayMedium,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            'Например: «такси 400» или «продукты 2300 и кофе 450»',
+            manualOnly
+                ? 'Режим «Только ручной ввод»: данные не покидают устройство'
+                : 'Например: «такси 400» или «продукты 2300 и кофе 450»',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.xxl),
-          PulsingMicButton(onPressed: onStart),
-          const SizedBox(height: AppSpacing.md),
+          if (!manualOnly) ...[
+            PulsingMicButton(onPressed: onStart),
+            const SizedBox(height: AppSpacing.md),
+          ] else ...[
+            Container(
+              width: 88,
+              height: 88,
+              decoration: BoxDecoration(
+                color: sona.accentSoft,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.lock_rounded,
+                size: 40,
+                color: sona.onAccentSoft,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+          ],
           OutlinedButton.icon(
             onPressed: onWrite,
             icon: const Icon(Icons.keyboard_rounded, size: 20),
@@ -191,8 +219,14 @@ class _IdleView extends StatelessWidget {
 }
 
 class _TextInputView extends StatefulWidget {
-  const _TextInputView({super.key, required this.onSubmit, required this.onCancel});
+  const _TextInputView({
+    super.key,
+    required this.manualOnly,
+    required this.onSubmit,
+    required this.onCancel,
+  });
 
+  final bool manualOnly;
   final Future<void> Function(String text) onSubmit;
   final VoidCallback onCancel;
 
@@ -224,7 +258,9 @@ class _TextInputViewState extends State<_TextInputView> {
         Text('Напишите операцию', style: theme.textTheme.displayMedium),
         const SizedBox(height: AppSpacing.xxs),
         Text(
-          'AI разберёт текст так же, как голосовую фразу',
+          widget.manualOnly
+              ? 'Разбор выполняется локально, без отправки в облако'
+              : 'AI разберёт текст так же, как голосовую фразу',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -438,7 +474,10 @@ class _ParsedView extends StatelessWidget {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        if (state.offline) ...[
+        if (state.localOnly) ...[
+          const SizedBox(height: AppSpacing.xs),
+          const _LocalBadge(),
+        ] else if (state.offline) ...[
           const SizedBox(height: AppSpacing.xs),
           const _OfflineBadge(),
         ] else if (state.fallbackUsed) ...[
@@ -513,6 +552,36 @@ class _FallbackBadge extends StatelessWidget {
         child: Text(
           'Резервный разбор',
           style: TextStyle(fontSize: 12, color: sona.warning),
+        ),
+      ),
+    );
+  }
+}
+
+class _LocalBadge extends StatelessWidget {
+  const _LocalBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final sona = context.sonaColors;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: sona.accentSoft,
+          borderRadius: BorderRadius.circular(AppRadius.pill),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.lock_rounded, size: 14, color: sona.onAccentSoft),
+            const SizedBox(width: AppSpacing.xxs),
+            Text(
+              'Локальный разбор',
+              style: TextStyle(fontSize: 12, color: sona.onAccentSoft),
+            ),
+          ],
         ),
       ),
     );

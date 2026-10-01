@@ -33,8 +33,21 @@ class RecordController extends Notifier<RecordState> {
     return const RecordState();
   }
 
+  /// Включён ли режим «Только ручной ввод» (без отправки аудио в облако).
+  bool get _manualOnly =>
+      ref.read(appSettingsProvider).value?.manualOnlyMode ?? false;
+
   /// Начинает запись: запрашивает микрофон и переводит экран в «Слушаю».
   Future<void> startListening() async {
+    if (_manualOnly) {
+      state = state.copyWith(
+        stage: RecordStage.error,
+        errorMessage:
+            'Включён режим «Только ручной ввод». Введите операцию текстом.',
+      );
+      return;
+    }
+
     final recorder = ref.read(audioRecorderProvider);
     final fileStore = ref.read(recordingFileStoreProvider);
 
@@ -141,6 +154,7 @@ class RecordController extends Notifier<RecordState> {
   Future<void> refineWithAi() async {
     final text = state.transcript;
     if (text == null || !state.offline || state.isBusy) return;
+    if (_manualOnly) return;
 
     state = state.copyWith(isBusy: true, refineError: null);
     try {
@@ -284,11 +298,18 @@ class RecordController extends Notifier<RecordState> {
       canRefineOnline: false,
       refineError: null,
       shortcut: null,
+      localOnly: false,
     );
 
     final shortcut = ShortcutMatcher.match(text);
     if (shortcut != null) {
       await _runShortcut(shortcut);
+      return;
+    }
+
+    // Режим «Только ручной ввод»: не обращаемся к облаку, разбираем локально.
+    if (_manualOnly) {
+      await _parseOffline(text, localOnly: true);
       return;
     }
 
@@ -331,7 +352,7 @@ class RecordController extends Notifier<RecordState> {
     }
   }
 
-  Future<void> _parseOffline(String text) async {
+  Future<void> _parseOffline(String text, {bool localOnly = false}) async {
     final result = await ref.read(localTextParserProvider).parse(text);
     _processingStopwatch.stop();
 
@@ -350,10 +371,12 @@ class RecordController extends Notifier<RecordState> {
       model: result.model,
       fallbackUsed: true,
       offline: true,
+      localOnly: localOnly,
       isBusy: false,
       processingDuration: _processingStopwatch.elapsed,
     );
-    await _watchConnectivity();
+    // В режиме «Только ручной ввод» уточнение через AI недоступно.
+    if (!localOnly) await _watchConnectivity();
   }
 
   Future<void> _runShortcut(VoiceShortcutMatch match) async {

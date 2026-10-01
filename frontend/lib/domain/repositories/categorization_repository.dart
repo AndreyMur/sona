@@ -17,4 +17,7 @@ abstract interface class CategorizationRepository {
 
   /// Удаляет правило по id.
   Future<void> delete(int id);
+
+  /// Удаляет все выученные правила.
+  Future<void> deleteAll();
 }

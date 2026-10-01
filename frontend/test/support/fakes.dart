@@ -7,7 +7,9 @@ import 'package:sona/domain/models/recognition.dart';
 import 'package:sona/domain/repositories/categorization_repository.dart';
 import 'package:sona/domain/services/app_settings_store.dart';
 import 'package:sona/domain/services/audio_recorder.dart';
+import 'package:sona/domain/services/biometric_service.dart';
 import 'package:sona/domain/services/connectivity_service.dart';
+import 'package:sona/domain/services/data_export_store.dart';
 import 'package:sona/domain/services/permission_service.dart';
 import 'package:sona/domain/services/recognition_service.dart';
 import 'package:sona/domain/services/recording_file_store.dart';
@@ -173,6 +175,12 @@ class FakeCategorizationRepository implements CategorizationRepository {
     _rules.remove(id);
     _controller.add(_rules.values.toList());
   }
+
+  @override
+  Future<void> deleteAll() async {
+    _rules.clear();
+    _controller.add(_rules.values.toList());
+  }
 }
 
 /// Поддельное отслеживание сети.
@@ -280,6 +288,39 @@ class FakeSonaNotifications implements SonaNotifications {
   @override
   Future<void> cancelDailyReminder() async {
     cancels++;
+  }
+}
+
+/// Поддельная биометрия: доступность и результат настраиваются.
+class FakeBiometricService implements BiometricService {
+  FakeBiometricService({this.available = true, this.grant = true});
+
+  bool available;
+  bool grant;
+  int checks = 0;
+  int authentications = 0;
+
+  @override
+  Future<bool> isAvailable() async {
+    checks++;
+    return available;
+  }
+
+  @override
+  Future<bool> authenticate({required String reason}) async {
+    authentications++;
+    return grant;
+  }
+}
+
+/// Поддельное хранилище экспорта: запоминает содержимое, ничего не пишет.
+class FakeDataExportStore implements DataExportStore {
+  final List<({String fileName, String content})> writes = [];
+
+  @override
+  Future<String> write(String fileName, String content) async {
+    writes.add((fileName: fileName, content: content));
+    return 'test://$fileName';
   }
 }
 

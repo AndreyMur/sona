@@ -49,6 +49,7 @@ class RecordState {
     this.shortcut,
     this.source = OperationSource.voice,
     this.savedCount = 0,
+    this.localOnly = false,
   });
 
   final RecordStage stage;
@@ -89,6 +90,9 @@ class RecordState {
   /// Сколько операций сохранено на шаге «Сохранено».
   final int savedCount;
 
+  /// Разбор выполнен локально в режиме «Только ручной ввод» (без облака).
+  final bool localOnly;
+
   bool get hasOperations => operations.isNotEmpty;
 
   RecordState copyWith({
@@ -107,6 +111,7 @@ class RecordState {
     Object? shortcut = _unset,
     OperationSource? source,
     int? savedCount,
+    bool? localOnly,
   }) {
     return RecordState(
       stage: stage ?? this.stage,
@@ -134,6 +139,7 @@ class RecordState {
           : shortcut as ShortcutResult?,
       source: source ?? this.source,
       savedCount: savedCount ?? this.savedCount,
+      localOnly: localOnly ?? this.localOnly,
     );
   }
 

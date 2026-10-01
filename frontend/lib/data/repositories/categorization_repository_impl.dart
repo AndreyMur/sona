@@ -27,4 +27,7 @@ class DriftCategorizationRepository implements CategorizationRepository {
 
   @override
   Future<void> delete(int id) => _db.deleteRule(id);
+
+  @override
+  Future<void> deleteAll() => _db.deleteAllRules();
 }
