@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/foundation.dart'
+    show kDebugMode, kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -17,12 +18,15 @@ import '../data/services/audio_recorder_service.dart';
 import '../data/services/connectivity_service_impl.dart';
 import '../data/services/device_identity_store.dart';
 import '../data/services/file_data_export_store.dart';
+import '../data/services/in_app_purchase_service.dart';
 import '../data/services/local_auth_biometric_service.dart';
 import '../data/services/local_notification_service.dart';
 import '../data/services/local_text_parser.dart';
 import '../data/services/permission_service_impl.dart';
 import '../data/services/recording_file_store.dart';
 import '../data/services/secure_app_settings_store.dart';
+import '../data/services/secure_subscription_store.dart';
+import '../data/services/unsupported_purchase_service.dart';
 import '../domain/repositories/categorization_repository.dart';
 import '../domain/repositories/operation_repository.dart';
 import '../domain/models/app_settings.dart';
@@ -30,6 +34,7 @@ import '../domain/models/categorization_rule.dart';
 import '../domain/models/category.dart';
 import '../domain/models/currency.dart';
 import '../domain/models/operation.dart';
+import '../domain/models/subscription.dart';
 import '../domain/services/app_settings_store.dart';
 import '../domain/services/audio_recorder.dart';
 import '../domain/services/biometric_service.dart';
@@ -37,9 +42,12 @@ import '../domain/services/connectivity_service.dart';
 import '../domain/services/data_export_store.dart';
 import '../domain/services/learning_text_parser.dart';
 import '../domain/services/permission_service.dart';
+import '../domain/services/purchase_service.dart';
 import '../domain/services/recognition_service.dart';
 import '../domain/services/notification_service.dart';
 import '../domain/services/recording_file_store.dart';
+import '../domain/services/subscription_gateway.dart';
+import '../domain/services/subscription_store.dart';
 
 /// Защищённое хранилище секретов приложения.
 final secureStorageProvider = Provider<FlutterSecureStorage>(
@@ -269,6 +277,12 @@ class AppSettingsController extends AsyncNotifier<AppSettings> {
   Future<void> setManualOnlyMode(bool enabled) async {
     final current = state.value ?? const AppSettings();
     await _update(current.copyWith(manualOnlyMode: enabled));
+  }
+
+  /// Задаёт качество распознавания речи (Стандарт / Максимум).
+  Future<void> setRecognitionQuality(RecognitionQuality quality) async {
+    final current = state.value ?? const AppSettings();
+    await _update(current.copyWith(recognitionQuality: quality));
   }
 
   /// Включает защиту входа и задаёт хеш PIN-кода.
@@ -749,3 +763,173 @@ final notificationsPortProvider = Provider<SonaNotifications>(
 final dataExportStoreProvider = Provider<DataExportStore>(
   (ref) => FileDataExportStore(),
 );
+
+/// Хранилище состояния подписки Sona Pro.
+final subscriptionStoreProvider = Provider<SubscriptionStore>(
+  (ref) => SecureSubscriptionStore(ref.watch(secureStorageProvider)),
+);
+
+/// Порт покупок внутри приложения (in_app_purchase).
+final purchaseServiceProvider = Provider<PurchaseService>((ref) {
+  final service = kIsWeb
+      ? const UnsupportedPurchaseService()
+      : InAppPurchaseService();
+  ref.onDispose(service.dispose);
+  return service;
+});
+
+/// Синхронизация тарифа с прокси (снятие лимита бесплатного тарифа).
+final subscriptionGatewayProvider = Provider<SubscriptionGateway>(
+  (ref) => ref.watch(odiRouterClientProvider),
+);
+
+/// Состояние подписки Sona Pro.
+final subscriptionProvider =
+    AsyncNotifierProvider<SubscriptionController, SubscriptionState>(
+      SubscriptionController.new,
+    );
+
+/// Активен ли Sona Pro прямо сейчас.
+final isProProvider = Provider<bool>((ref) {
+  final state = ref.watch(subscriptionProvider).value;
+  return state?.isProAt(DateTime.now()) ?? false;
+});
+
+/// Эффективное качество распознавания: «Максимум» доступно только Pro.
+final recognitionQualityProvider = Provider<RecognitionQuality>((ref) {
+  final isPro = ref.watch(isProProvider);
+  final selected =
+      ref.watch(appSettingsProvider).value?.recognitionQuality ??
+      RecognitionQuality.standard;
+  return isPro ? selected : RecognitionQuality.standard;
+});
+
+/// Управляет подпиской: загрузка, пробный период, покупка, восстановление.
+class SubscriptionController extends AsyncNotifier<SubscriptionState> {
+  @override
+  Future<SubscriptionState> build() async {
+    try {
+      final state = await ref.watch(subscriptionStoreProvider).load();
+      final now = DateTime.now();
+      if (state.tier == SubscriptionTier.pro && !state.isProAt(now)) {
+        final expired = state.copyWith(
+          tier: SubscriptionTier.free,
+          trial: false,
+        );
+        await ref.read(subscriptionStoreProvider).save(expired);
+        return expired;
+      }
+      return state;
+    } catch (_) {
+      return const SubscriptionState();
+    }
+  }
+
+  /// Предложения магазина (или запасные цены из дизайн-системы).
+  Future<List<SubscriptionOffer>> offers() =>
+      ref.read(purchaseServiceProvider).offers();
+
+  /// Запускает покупку подписки [plan].
+  Future<PurchaseResult> purchase(SubscriptionPlan plan) async {
+    final result = await ref.read(purchaseServiceProvider).buy(plan);
+    if (result.isSuccess) {
+      await _activate(
+        plan: result.plan ?? plan,
+        purchaseToken: result.purchaseToken,
+        expiresAt: result.expiresAt,
+      );
+    }
+    return result;
+  }
+
+  /// Восстанавливает ранее оформленные покупки.
+  Future<PurchaseResult> restore() async {
+    final result = await ref.read(purchaseServiceProvider).restore();
+    if (result.isSuccess) {
+      await _activate(
+        plan: result.plan ?? SubscriptionPlan.monthly,
+        purchaseToken: result.purchaseToken,
+        expiresAt: result.expiresAt,
+      );
+    }
+    return result;
+  }
+
+  /// Запускает пробный период на 7 дней. Возвращает `false`, если он уже
+  /// использован или Pro активен.
+  Future<bool> startTrial() async {
+    final current = state.value ?? const SubscriptionState();
+    if (!current.canStartTrial) return false;
+    final now = DateTime.now();
+    final ends = now.add(const Duration(days: kProTrialDays));
+    await _activate(
+      plan: SubscriptionPlan.monthly,
+      trial: true,
+      expiresAt: ends,
+      trialEndsAt: ends,
+    );
+    return true;
+  }
+
+  /// Отменяет подписку и возвращает бесплатный тариф.
+  Future<void> cancel() async {
+    try {
+      await ref.read(subscriptionGatewayProvider).deactivate();
+    } catch (_) {
+      // Отмена локальна; синхронизация с прокси не критична.
+    }
+    final current = state.value ?? const SubscriptionState();
+    await _persist(
+      SubscriptionState(trialUsed: current.trialUsed || current.trial),
+    );
+  }
+
+  Future<void> _activate({
+    required SubscriptionPlan plan,
+    String? purchaseToken,
+    DateTime? expiresAt,
+    bool trial = false,
+    DateTime? trialEndsAt,
+  }) async {
+    final current = state.value ?? const SubscriptionState();
+    final next = SubscriptionState(
+      tier: SubscriptionTier.pro,
+      plan: plan,
+      trial: trial,
+      trialEndsAt: trialEndsAt ?? current.trialEndsAt,
+      expiresAt: expiresAt,
+      trialUsed: current.trialUsed || trial,
+      purchaseToken: purchaseToken ?? current.purchaseToken,
+    );
+    await _persist(next);
+    try {
+      await ref
+          .read(subscriptionGatewayProvider)
+          .activate(
+            plan: plan,
+            platform: _platformName(),
+            purchaseToken: purchaseToken,
+            trial: trial,
+            expiresAt: expiresAt,
+          );
+    } catch (_) {
+      // Локально Pro уже активен; синхронизацию с прокси повторим позже.
+    }
+  }
+
+  Future<void> _persist(SubscriptionState value) async {
+    state = AsyncData(value);
+    try {
+      await ref.read(subscriptionStoreProvider).save(value);
+    } catch (_) {
+      // Сбой записи не должен ломать UI.
+    }
+  }
+
+  String? _platformName() {
+    if (kIsWeb) return 'web';
+    if (defaultTargetPlatform == TargetPlatform.iOS) return 'ios';
+    if (defaultTargetPlatform == TargetPlatform.android) return 'android';
+    return null;
+  }
+}

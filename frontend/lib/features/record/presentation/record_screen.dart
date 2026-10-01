@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
@@ -147,6 +149,9 @@ class _RecordScreenState extends ConsumerState<RecordScreen> {
           message: state.errorMessage,
           onRetry: controller.reset,
           onWrite: controller.startTextInput,
+          onUpgrade: state.quotaExceeded
+              ? () => context.push(AppRoutes.subscription)
+              : null,
         );
     }
   }
@@ -684,11 +689,13 @@ class _ErrorView extends StatelessWidget {
     required this.message,
     required this.onRetry,
     required this.onWrite,
+    this.onUpgrade,
   });
 
   final String? message;
   final VoidCallback onRetry;
   final VoidCallback onWrite;
+  final VoidCallback? onUpgrade;
 
   @override
   Widget build(BuildContext context) {
@@ -699,10 +706,16 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.error_outline_rounded, size: 64, color: scheme.error),
+          Icon(
+            onUpgrade != null
+                ? Icons.workspace_premium_outlined
+                : Icons.error_outline_rounded,
+            size: 64,
+            color: onUpgrade != null ? scheme.primary : scheme.error,
+          ),
           const SizedBox(height: AppSpacing.md),
           Text(
-            'Не получилось',
+            onUpgrade != null ? 'Лимит бесплатных операций' : 'Не получилось',
             style: theme.textTheme.headlineSmall,
             textAlign: TextAlign.center,
           ),
@@ -715,7 +728,18 @@ class _ErrorView extends StatelessWidget {
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: AppSpacing.xl),
-          FilledButton(onPressed: onRetry, child: const Text('Попробовать снова')),
+          if (onUpgrade != null) ...[
+            FilledButton.icon(
+              onPressed: onUpgrade,
+              icon: const Icon(Icons.workspace_premium_outlined, size: 20),
+              label: const Text('Оформить Sona Pro'),
+            ),
+          ] else ...[
+            FilledButton(
+              onPressed: onRetry,
+              child: const Text('Попробовать снова'),
+            ),
+          ],
           const SizedBox(height: AppSpacing.xs),
           OutlinedButton.icon(
             onPressed: onWrite,

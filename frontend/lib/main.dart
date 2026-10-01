@@ -39,6 +39,7 @@ Future<void> main() async {
           DemoCategorizationRepository(),
         ),
         appSettingsStoreProvider.overrideWithValue(DemoAppSettingsStore()),
+        subscriptionStoreProvider.overrideWithValue(DemoSubscriptionStore()),
         notificationsPortProvider.overrideWithValue(DemoSonaNotifications()),
         dataExportStoreProvider.overrideWithValue(DemoDataExportStore()),
       ],

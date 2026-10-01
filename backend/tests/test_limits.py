@@ -57,6 +57,29 @@ def test_cost_limit(client: TestClient, device_token: str) -> None:
     assert response.json()["error"] == "cost_limit_reached"
 
 
+def test_pro_tier_gets_priority_rate_limit(client: TestClient, device_token: str) -> None:
+    _set_limits(
+        client,
+        rate_limit_per_minute=1,
+        rate_limit_per_day=100,
+        free_monthly_operations=100,
+        pro_rate_limit_multiplier=5,
+    )
+    first = client.post("/v1/parse", json={"text": "a"}, headers=auth(device_token))
+    assert first.status_code == 200
+    second = client.post("/v1/parse", json={"text": "b"}, headers=auth(device_token))
+    assert second.status_code == 429
+
+    me = client.get("/v1/me", headers=auth(device_token)).json()
+    client.post(
+        f"/v1/admin/devices/{me['device_id']}/tier",
+        json={"tier": "pro"},
+        headers=ADMIN,
+    )
+    third = client.post("/v1/parse", json={"text": "c"}, headers=auth(device_token))
+    assert third.status_code == 200, third.text
+
+
 def test_usage_logged(client: TestClient, device_token: str) -> None:
     client.post("/v1/parse", json={"text": "такси 400"}, headers=auth(device_token))
     me = client.get("/v1/me", headers=auth(device_token)).json()

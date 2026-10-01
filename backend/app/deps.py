@@ -55,6 +55,9 @@ def effective_limits(settings: Settings, config: dict[str, Any]) -> dict[str, fl
         "monthly_cost_limit_usd": limits.get(
             "monthly_cost_limit_usd", settings.monthly_cost_limit_usd
         ),
+        "pro_rate_limit_multiplier": limits.get(
+            "pro_rate_limit_multiplier", settings.pro_rate_limit_multiplier
+        ),
     }
 
 
@@ -69,7 +72,27 @@ async def authenticate(
     device = await db.get_device_by_token_hash(hash_token(token))
     if not device:
         raise ApiError(401, "unauthorized", "Unknown or revoked device token")
+    device = await refresh_tier(db, device)
     await db.touch_device(device["id"])
+    return device
+
+
+async def refresh_tier(db: Database, device: dict[str, Any]) -> dict[str, Any]:
+    """Снимает Pro при истечении подписки.
+
+    Устройства, повышенные администратором (без записи о подписке),
+    не затрагиваются — управляемый вручную тариф сохраняется.
+    """
+    if device.get("tier") != "pro":
+        return device
+    subscription = await db.get_subscription(device["id"])
+    if subscription is None:
+        return device
+    expires = subscription.get("expires_at")
+    if expires and datetime.fromisoformat(expires) <= datetime.now(UTC):
+        await db.set_tier(device["id"], "free")
+        await db.update_subscription_status(device["id"], "expired")
+        return {**device, "tier": "free"}
     return device
 
 
@@ -81,6 +104,12 @@ async def check_rate_limit(
     now = datetime.now(UTC)
     per_minute = int(limits["rate_limit_per_minute"])
     per_day = int(limits["rate_limit_per_day"])
+
+    # Приоритетная обработка Pro: повышенные лимиты частоты запросов.
+    if device.get("tier") == "pro":
+        multiplier = float(limits["pro_rate_limit_multiplier"])
+        per_minute = int(round(per_minute * multiplier))
+        per_day = int(round(per_day * multiplier))
 
     minute_count = await db.count_requests_since(device["id"], now - timedelta(minutes=1))
     if minute_count >= per_minute:
@@ -136,6 +165,7 @@ async def record_request(
     cost_usd: float = 0.0,
     detail: str | None = None,
     fallback_used: bool = False,
+    priority: bool = False,
 ) -> None:
     db = get_db(request)
     await db.log_request(
@@ -158,5 +188,6 @@ async def record_request(
             "cost_usd": cost_usd,
             "status": status,
             "fallback_used": fallback_used,
+            "priority": priority,
         },
     )

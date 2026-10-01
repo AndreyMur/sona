@@ -10,6 +10,7 @@ import '../../../core/utils/budget_math.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
 import '../../../domain/models/operation.dart';
+import '../../../domain/models/subscription.dart';
 import '../../record/presentation/widgets/pulsing_mic_button.dart';
 
 /// Советы дня: ротация по номеру дня в году.
@@ -129,6 +130,10 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ],
               ),
+              if (!ref.watch(isProProvider)) ...[
+                const SizedBox(height: AppSpacing.sm),
+                const _FreeLimitCard(),
+              ],
               if (cycle != null && cycle.monthlyBudget > 0) ...[
                 const SizedBox(height: AppSpacing.md),
                 _BudgetProgressCard(
@@ -305,6 +310,68 @@ class _QuickActionCard extends StatelessWidget {
                   style: theme.textTheme.titleMedium,
                   overflow: TextOverflow.ellipsis,
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Карточка бесплатного тарифа: остаток операций месяца и переход к Pro.
+class _FreeLimitCard extends ConsumerWidget {
+  const _FreeLimitCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final sona = context.sonaColors;
+    final used = ref.watch(monthlyOperationCountProvider).asData?.value ?? 0;
+    final remaining = (kFreeMonthlyOperations - used).clamp(
+      0,
+      kFreeMonthlyOperations,
+    );
+
+    return Card(
+      child: InkWell(
+        onTap: () => context.push(AppRoutes.subscription),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Icon(
+                Icons.workspace_premium_outlined,
+                size: 22,
+                color: sona.onAccentSoft,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Бесплатный тариф', style: theme.textTheme.titleMedium),
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      'Осталось $remaining из $kFreeMonthlyOperations операций',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                'Sona Pro',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: sona.onAccentSoft,
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ],
           ),

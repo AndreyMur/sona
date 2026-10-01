@@ -31,6 +31,18 @@ CREATE TABLE IF NOT EXISTS request_log (
 
 CREATE INDEX IF NOT EXISTS idx_request_log_device_created
     ON request_log (device_id, created_at);
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+    device_id TEXT PRIMARY KEY,
+    plan TEXT NOT NULL,
+    platform TEXT,
+    purchase_token TEXT,
+    status TEXT NOT NULL,
+    trial INTEGER NOT NULL DEFAULT 0,
+    started_at TEXT NOT NULL,
+    expires_at TEXT,
+    updated_at TEXT NOT NULL
+);
 """
 
 
@@ -167,3 +179,84 @@ class Database:
         ) as cursor:
             row = await cursor.fetchone()
         return float(row["s"]) if row else 0.0
+
+    async def upsert_subscription(
+        self,
+        *,
+        device_id: str,
+        plan: str,
+        platform: str | None,
+        purchase_token: str | None,
+        status: str,
+        trial: bool,
+        started_at: datetime,
+        expires_at: datetime | None,
+    ) -> dict:
+        now = _iso(_utcnow())
+        async with self._lock:
+            await self.conn.execute(
+                """INSERT INTO subscriptions
+                   (device_id, plan, platform, purchase_token, status, trial,
+                    started_at, expires_at, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   ON CONFLICT(device_id) DO UPDATE SET
+                     plan = excluded.plan,
+                     platform = excluded.platform,
+                     purchase_token = excluded.purchase_token,
+                     status = excluded.status,
+                     trial = excluded.trial,
+                     started_at = excluded.started_at,
+                     expires_at = excluded.expires_at,
+                     updated_at = excluded.updated_at""",
+                (
+                    device_id,
+                    plan,
+                    platform,
+                    purchase_token,
+                    status,
+                    1 if trial else 0,
+                    _iso(started_at),
+                    _iso(expires_at) if expires_at else None,
+                    now,
+                ),
+            )
+            await self.conn.commit()
+        return {
+            "device_id": device_id,
+            "plan": plan,
+            "platform": platform,
+            "purchase_token": purchase_token,
+            "status": status,
+            "trial": trial,
+            "started_at": _iso(started_at),
+            "expires_at": _iso(expires_at) if expires_at else None,
+            "updated_at": now,
+        }
+
+    async def get_subscription(self, device_id: str) -> dict | None:
+        async with self.conn.execute(
+            "SELECT * FROM subscriptions WHERE device_id = ?",
+            (device_id,),
+        ) as cursor:
+            row = await cursor.fetchone()
+        if not row:
+            return None
+        data = dict(row)
+        data["trial"] = bool(data.get("trial"))
+        return data
+
+    async def update_subscription_status(self, device_id: str, status: str) -> None:
+        async with self._lock:
+            await self.conn.execute(
+                "UPDATE subscriptions SET status = ?, updated_at = ? WHERE device_id = ?",
+                (status, _iso(_utcnow()), device_id),
+            )
+            await self.conn.commit()
+
+    async def clear_subscription(self, device_id: str) -> None:
+        async with self._lock:
+            await self.conn.execute(
+                "DELETE FROM subscriptions WHERE device_id = ?",
+                (device_id,),
+            )
+            await self.conn.commit()

@@ -4,11 +4,13 @@ import '../../domain/models/app_settings.dart';
 import '../../domain/models/categorization_rule.dart';
 import '../../domain/models/category.dart';
 import '../../domain/models/operation.dart';
+import '../../domain/models/subscription.dart';
 import '../../domain/repositories/categorization_repository.dart';
 import '../../domain/repositories/operation_repository.dart';
 import '../../domain/services/app_settings_store.dart';
 import '../../domain/services/data_export_store.dart';
 import '../../domain/services/notification_service.dart';
+import '../../domain/services/subscription_store.dart';
 
 /// In-memory-реализации доменных хранилищ для запуска веб-версии:
 /// нативная БД (SQLCipher) в браузере недоступна, данные живут
@@ -425,6 +427,20 @@ class DemoAppSettingsStore implements AppSettingsStore {
 
   @override
   Future<void> save(AppSettings value) async => settings = value;
+}
+
+/// Подписка в памяти: статус живёт до перезагрузки страницы.
+class DemoSubscriptionStore implements SubscriptionStore {
+  DemoSubscriptionStore([SubscriptionState? initial])
+    : state = initial ?? const SubscriptionState();
+
+  SubscriptionState state;
+
+  @override
+  Future<SubscriptionState> load() async => state;
+
+  @override
+  Future<void> save(SubscriptionState value) async => state = value;
 }
 
 /// Экспорт данных в веб-демо: файл не пишется, содержимое остаётся в памяти.

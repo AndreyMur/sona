@@ -66,6 +66,8 @@ DEFAULT_LIMITS: dict[str, Any] = {
     "rate_limit_per_day": 300,
     "free_monthly_operations": 30,
     "monthly_cost_limit_usd": 2.0,
+    # Pro обрабатывается с приоритетом: повышенные лимиты частоты запросов.
+    "pro_rate_limit_multiplier": 3,
 }
 
 

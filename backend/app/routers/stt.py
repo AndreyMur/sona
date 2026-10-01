@@ -50,6 +50,7 @@ async def transcribe(
     await check_quota(request, device, config)
 
     duration = resolve_duration(content, duration_seconds)
+    priority = device.get("tier") == "pro"
     stt = get_stt(request)
     started = time.perf_counter()
     try:
@@ -72,6 +73,7 @@ async def transcribe(
             status="error",
             latency_ms=latency_ms,
             detail=str(exc),
+            priority=priority,
         )
         raise ApiError(502, "upstream_error", "Speech recognition service is unavailable") from exc
 
@@ -85,6 +87,7 @@ async def transcribe(
         latency_ms=latency_ms,
         cost_usd=result.cost_usd,
         fallback_used=result.fallback_used,
+        priority=priority,
     )
     return TranscriptionResponse(
         request_id=getattr(request.state, "request_id", ""),

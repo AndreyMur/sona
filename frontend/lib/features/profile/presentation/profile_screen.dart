@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/financial_health.dart';
 import '../../../core/widgets/gradient_scaffold.dart';
 import '../../../domain/models/app_settings.dart';
+import '../../../domain/models/subscription.dart';
 
 /// Профиль: аватар, имя, email, скоринг «Финансовое здоровье» и меню разделов.
 class ProfileScreen extends ConsumerWidget {
@@ -19,6 +20,9 @@ class ProfileScreen extends ConsumerWidget {
     final theme = Theme.of(context);
     final settings = ref.watch(appSettingsProvider).value ?? const AppSettings();
     final health = ref.watch(financialHealthProvider);
+    final subscription =
+        ref.watch(subscriptionProvider).value ?? const SubscriptionState();
+    final subscriptionSubtitle = _subscriptionSubtitle(subscription);
 
     return GradientScaffold(
       appBar: AppBar(title: const Text('Профиль')),
@@ -80,8 +84,8 @@ class ProfileScreen extends ConsumerWidget {
                 _MenuTile(
                   icon: Icons.workspace_premium_outlined,
                   label: 'Подписка',
-                  subtitle: 'Sona Pro',
-                  onTap: () => _comingSoon(context, 'Sona Pro'),
+                  subtitle: subscriptionSubtitle,
+                  onTap: () => context.push(AppRoutes.subscription),
                 ),
               ],
             ),
@@ -110,6 +114,19 @@ class ProfileScreen extends ConsumerWidget {
     await ref
         .read(appSettingsProvider.notifier)
         .setProfile(name: result.name, email: result.email);
+  }
+
+  /// Подпись пункта «Подписка»: статус Pro, пробный период или бесплатный.
+  String _subscriptionSubtitle(SubscriptionState subscription) {
+    final now = DateTime.now();
+    if (subscription.isProAt(now)) {
+      if (subscription.isTrialAt(now)) {
+        final days = subscription.trialDaysLeft(now);
+        return days > 0 ? 'Пробный период · $days дн.' : 'Пробный период';
+      }
+      return 'Sona Pro · активна';
+    }
+    return 'Sona Pro';
   }
 
   void _comingSoon(BuildContext context, String section) {

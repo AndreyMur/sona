@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/budget_math.dart';
@@ -38,6 +40,10 @@ class BudgetScreen extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _BudgetHeaderCard(cycle: cycle, spent: spent),
+            if (!ref.watch(isProProvider)) ...[
+              const SizedBox(height: AppSpacing.sm),
+              const _ProBudgetUpsellCard(),
+            ],
             const SizedBox(height: AppSpacing.md),
             _CategoryBreakdownCard(groups: expenseGroups, spent: spent),
             const SizedBox(height: AppSpacing.lg),
@@ -83,6 +89,52 @@ class BudgetScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Подсказка бесплатного тарифа: один бюджет, в Pro — без ограничений.
+class _ProBudgetUpsellCard extends StatelessWidget {
+  const _ProBudgetUpsellCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sona = context.sonaColors;
+
+    return Card(
+      color: sona.accentSoft,
+      child: InkWell(
+        onTap: () => context.push(AppRoutes.subscription),
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
+          child: Row(
+            children: [
+              Icon(
+                Icons.workspace_premium_outlined,
+                size: 20,
+                color: sona.onAccentSoft,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  'На бесплатном тарифе — 1 бюджет. В Sona Pro — '
+                  'неограниченные бюджеты и цели.',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: sona.onAccentSoft,
+                  ),
+                ),
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: sona.onAccentSoft,
+              ),
+            ],
+          ),
         ),
       ),
     );

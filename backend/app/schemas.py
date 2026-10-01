@@ -59,6 +59,23 @@ class ParseRequest(BaseModel):
     request_id: str | None = None
 
 
+class SubscriptionRequest(BaseModel):
+    plan: Literal["monthly", "annual"] = "monthly"
+    platform: str | None = None
+    purchase_token: str | None = None
+    trial: bool = False
+    expires_at: datetime | None = None
+
+
+class SubscriptionResponse(BaseModel):
+    device_id: str
+    tier: Literal["free", "pro"]
+    plan: str | None = None
+    status: str
+    trial: bool = False
+    expires_at: datetime | None = None
+
+
 class ConfigResponse(BaseModel):
     prompt_version: str
     system_prompt: str

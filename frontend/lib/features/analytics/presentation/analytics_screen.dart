@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/providers.dart';
+import '../../../core/router/app_router.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/analytics_math.dart';
@@ -20,6 +22,7 @@ class AnalyticsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selection = ref.watch(analyticsSelectionProvider);
     final overview = ref.watch(analyticsOverviewProvider);
+    final isPro = ref.watch(isProProvider);
 
     return GradientScaffold(
       appBar: AppBar(title: const Text('Аналитика')),
@@ -35,6 +38,8 @@ class AnalyticsScreen extends ConsumerWidget {
           children: [
             _PeriodTabs(
               selected: selection.period,
+              isPro: isPro,
+              onLocked: () => context.push(AppRoutes.subscription),
               onSelect: (period) => ref
                   .read(analyticsSelectionProvider.notifier)
                   .setPeriod(period),
@@ -60,11 +65,25 @@ class AnalyticsScreen extends ConsumerWidget {
 }
 
 /// Переключатель периодов аналитики: Неделя / Месяц / Год / Период.
+///
+/// Год и произвольный период — возможности Sona Pro; на бесплатном тарифе
+/// они помечены замком и ведут на экран подписки.
 class _PeriodTabs extends StatelessWidget {
-  const _PeriodTabs({required this.selected, required this.onSelect});
+  const _PeriodTabs({
+    required this.selected,
+    required this.isPro,
+    required this.onLocked,
+    required this.onSelect,
+  });
 
   final AnalyticsPeriod selected;
+  final bool isPro;
+  final VoidCallback onLocked;
   final ValueChanged<AnalyticsPeriod> onSelect;
+
+  bool _locked(AnalyticsPeriod period) =>
+      !isPro &&
+      (period == AnalyticsPeriod.year || period == AnalyticsPeriod.custom);
 
   @override
   Widget build(BuildContext context) {
@@ -90,22 +109,36 @@ class _PeriodTabs extends StatelessWidget {
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                 ),
                 child: InkWell(
-                  onTap: () => onSelect(period),
+                  onTap: _locked(period) ? onLocked : () => onSelect(period),
                   borderRadius: BorderRadius.circular(AppRadius.pill),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       vertical: AppSpacing.sm,
                     ),
-                    child: Text(
-                      period.label,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: period == selected
-                            ? sona.onAccentSoft
-                            : theme.colorScheme.onSurfaceVariant,
-                        fontWeight:
-                            period == selected ? FontWeight.w600 : FontWeight.w500,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          period.label,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: period == selected
+                                ? sona.onAccentSoft
+                                : theme.colorScheme.onSurfaceVariant,
+                            fontWeight: period == selected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
+                          ),
+                        ),
+                        if (_locked(period)) ...[
+                          const SizedBox(width: AppSpacing.xxs),
+                          Icon(
+                            Icons.lock_outline_rounded,
+                            size: 13,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
@@ -422,6 +455,12 @@ class _CategoryFilterCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final sona = context.sonaColors;
+    if (!ref.watch(isProProvider)) {
+      return const _ProLockCard(
+        title: 'Фильтр по категориям',
+        message: 'Фильтр по категориям — часть полной аналитики Sona Pro.',
+      );
+    }
     final selection = ref.watch(analyticsSelectionProvider);
     final categories = (overview.asData?.value.categories ?? const {})
         .keys
@@ -489,6 +528,55 @@ class _CategoryFilterCard extends ConsumerWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Карточка-заглушка для возможностей, доступных только в Sona Pro.
+class _ProLockCard extends StatelessWidget {
+  const _ProLockCard({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final sona = context.sonaColors;
+
+    return Card(
+      color: sona.accentSoft,
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 20,
+                  color: sona.onAccentSoft,
+                ),
+                const SizedBox(width: AppSpacing.xs),
+                Text(title, style: theme.textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xxs),
+            Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: sona.onAccentSoft,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            OutlinedButton(
+              onPressed: () => context.push(AppRoutes.subscription),
+              child: const Text('Открыть Sona Pro'),
+            ),
           ],
         ),
       ),

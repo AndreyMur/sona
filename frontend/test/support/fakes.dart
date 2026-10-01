@@ -4,6 +4,7 @@ import 'package:sona/domain/models/app_settings.dart';
 import 'package:sona/domain/models/categorization_rule.dart';
 import 'package:sona/domain/models/operation.dart';
 import 'package:sona/domain/models/recognition.dart';
+import 'package:sona/domain/models/subscription.dart';
 import 'package:sona/domain/repositories/categorization_repository.dart';
 import 'package:sona/domain/services/app_settings_store.dart';
 import 'package:sona/domain/services/audio_recorder.dart';
@@ -11,9 +12,12 @@ import 'package:sona/domain/services/biometric_service.dart';
 import 'package:sona/domain/services/connectivity_service.dart';
 import 'package:sona/domain/services/data_export_store.dart';
 import 'package:sona/domain/services/permission_service.dart';
+import 'package:sona/domain/services/purchase_service.dart';
 import 'package:sona/domain/services/recognition_service.dart';
 import 'package:sona/domain/services/recording_file_store.dart';
 import 'package:sona/domain/services/notification_service.dart';
+import 'package:sona/domain/services/subscription_gateway.dart';
+import 'package:sona/domain/services/subscription_store.dart';
 
 /// Поддельная запись аудио: не обращается к микрофону.
 class FakeAudioRecorder implements AudioRecorderPort {
@@ -81,6 +85,7 @@ class FakeSpeechRecognition implements SpeechRecognitionService {
   Object? error;
   Duration delay = Duration.zero;
   int calls = 0;
+  String? lastQuality;
 
   @override
   Future<TranscriptionResult> transcribe(
@@ -89,6 +94,7 @@ class FakeSpeechRecognition implements SpeechRecognitionService {
     String language = 'ru',
   }) async {
     calls++;
+    lastQuality = quality;
     if (delay > Duration.zero) await Future<void>.delayed(delay);
     if (error != null) throw error!;
     return TranscriptionResult(text: text, model: 'test/stt');
@@ -322,6 +328,113 @@ class FakeDataExportStore implements DataExportStore {
     writes.add((fileName: fileName, content: content));
     return 'test://$fileName';
   }
+}
+
+/// Поддельное хранилище подписки: состояние живёт в памяти.
+class FakeSubscriptionStore implements SubscriptionStore {
+  FakeSubscriptionStore([SubscriptionState? initial])
+    : state = initial ?? const SubscriptionState();
+
+  SubscriptionState state;
+  int saves = 0;
+
+  @override
+  Future<SubscriptionState> load() async => state;
+
+  @override
+  Future<void> save(SubscriptionState value) async {
+    state = value;
+    saves++;
+  }
+}
+
+/// Поддельные покупки: результат настраивается, вызовы записываются.
+class FakePurchaseService implements PurchaseService {
+  FakePurchaseService({this.available = true, this.buyResult});
+
+  bool available;
+  PurchaseResult? buyResult;
+  PurchaseResult? restoreResult;
+  List<SubscriptionOffer>? offersList;
+  final List<SubscriptionPlan> bought = [];
+  int restores = 0;
+  bool disposed = false;
+
+  @override
+  Future<bool> isAvailable() async => available;
+
+  @override
+  Future<List<SubscriptionOffer>> offers() async {
+    return offersList ??
+        [
+          for (final plan in SubscriptionPlan.values)
+            SubscriptionOffer(
+              plan: plan,
+              productId: plan.productId,
+              priceLabel: plan.priceLabel,
+            ),
+        ];
+  }
+
+  @override
+  Future<PurchaseResult> buy(SubscriptionPlan plan) async {
+    bought.add(plan);
+    return buyResult ??
+        PurchaseResult(
+          outcome: PurchaseOutcome.success,
+          plan: plan,
+          purchaseToken: 'fake-token',
+        );
+  }
+
+  @override
+  Future<PurchaseResult> restore() async {
+    restores++;
+    return restoreResult ?? PurchaseResult.nothingToRestore;
+  }
+
+  @override
+  void dispose() => disposed = true;
+}
+
+/// Поддельная синхронизация тарифа с прокси.
+class FakeSubscriptionGateway implements SubscriptionGateway {
+  final List<({SubscriptionPlan plan, bool trial, String? purchaseToken})>
+  activations = [];
+  int deactivations = 0;
+  bool fail = false;
+
+  @override
+  Future<void> activate({
+    required SubscriptionPlan plan,
+    String? platform,
+    String? purchaseToken,
+    bool trial = false,
+    DateTime? expiresAt,
+  }) async {
+    if (fail) throw StateError('gateway down');
+    activations.add((plan: plan, trial: trial, purchaseToken: purchaseToken));
+  }
+
+  @override
+  Future<void> deactivate() async {
+    deactivations++;
+  }
+}
+
+/// Состояние активной подписки Sona Pro для тестов.
+SubscriptionState proSubscription({
+  SubscriptionPlan plan = SubscriptionPlan.monthly,
+  bool trial = false,
+  DateTime? expiresAt,
+}) {
+  return SubscriptionState(
+    tier: SubscriptionTier.pro,
+    plan: plan,
+    trial: trial,
+    expiresAt: expiresAt ?? DateTime.now().add(const Duration(days: 30)),
+    trialUsed: true,
+  );
 }
 
 /// Готовый результат разбора с двумя тратами.

@@ -14,6 +14,7 @@ import '../../features/profile/presentation/data_screen.dart';
 import '../../features/profile/presentation/profile_screen.dart';
 import '../../features/record/presentation/record_screen.dart';
 import '../../features/security/presentation/security_screen.dart';
+import '../../features/subscription/presentation/subscription_screen.dart';
 
 /// Маршруты приложения.
 abstract final class AppRoutes {
@@ -27,6 +28,7 @@ abstract final class AppRoutes {
   static const String profile = '/profile';
   static const String profileData = '/profile/data';
   static const String security = '/profile/security';
+  static const String subscription = '/profile/subscription';
   static const String onboarding = '/onboarding';
 
   /// Служебный экран: показывается, пока настройки ещё загружаются.
@@ -137,6 +139,10 @@ GoRouter buildRouter({
       GoRoute(
         path: AppRoutes.security,
         builder: (context, state) => const SecurityScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.subscription,
+        builder: (context, state) => const SubscriptionScreen(),
       ),
       GoRoute(
         path: AppRoutes.onboarding,

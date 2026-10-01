@@ -50,6 +50,7 @@ class RecordState {
     this.source = OperationSource.voice,
     this.savedCount = 0,
     this.localOnly = false,
+    this.quotaExceeded = false,
   });
 
   final RecordStage stage;
@@ -93,6 +94,9 @@ class RecordState {
   /// Разбор выполнен локально в режиме «Только ручной ввод» (без облака).
   final bool localOnly;
 
+  /// Исчерпан лимит бесплатных операций (ответ прокси 402).
+  final bool quotaExceeded;
+
   bool get hasOperations => operations.isNotEmpty;
 
   RecordState copyWith({
@@ -112,6 +116,7 @@ class RecordState {
     OperationSource? source,
     int? savedCount,
     bool? localOnly,
+    bool? quotaExceeded,
   }) {
     return RecordState(
       stage: stage ?? this.stage,
@@ -140,6 +145,7 @@ class RecordState {
       source: source ?? this.source,
       savedCount: savedCount ?? this.savedCount,
       localOnly: localOnly ?? this.localOnly,
+      quotaExceeded: quotaExceeded ?? this.quotaExceeded,
     );
   }
 

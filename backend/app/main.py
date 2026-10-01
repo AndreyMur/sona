@@ -14,7 +14,7 @@ from .errors import ApiError
 from .logging_config import configure_logging
 from .nlu import NluService
 from .odirouter import OdiRouterClient
-from .routers import config_router, devices, health, nlu, stt
+from .routers import config_router, devices, health, nlu, stt, subscription
 from .storage import Database
 from .stt import SttService
 
@@ -104,6 +104,7 @@ def create_app(
     app.include_router(health.router)
     app.include_router(devices.router)
     app.include_router(config_router.router)
+    app.include_router(subscription.router)
     app.include_router(stt.router)
     app.include_router(nlu.router)
 
